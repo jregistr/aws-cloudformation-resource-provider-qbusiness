@@ -1,0 +1,215 @@
+{
+    "typeName": "AWS::QBusiness::Index",
+    "description": "Definition of AWS::QBusiness::Index Resource Type",
+    "definitions": {
+        "AttributeType": {
+            "type": "string",
+            "enum": [
+                "STRING",
+                "STRING_LIST",
+                "NUMBER",
+                "DATE"
+            ]
+        },
+        "DocumentAttributeConfiguration": {
+            "type": "object",
+            "properties": {
+                "Name": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "minLength": 1
+                },
+                "Type": {
+                    "$ref": "#/definitions/AttributeType"
+                },
+                "Search": {
+                    "$ref": "#/definitions/Status"
+                }
+            },
+            "additionalProperties": false
+        },
+        "IndexStatistics": {
+            "type": "object",
+            "properties": {
+                "TextDocumentStatistics": {
+                    "$ref": "#/definitions/TextDocumentStatistics"
+                }
+            },
+            "additionalProperties": false
+        },
+        "IndexStatus": {
+            "type": "string",
+            "enum": [
+                "CREATING",
+                "ACTIVE",
+                "DELETING",
+                "FAILED",
+                "UPDATING"
+            ]
+        },
+        "Status": {
+            "type": "string",
+            "enum": [
+                "ENABLED",
+                "DISABLED"
+            ]
+        },
+        "StorageCapacityUnitConfiguration": {
+            "type": "object",
+            "properties": {
+                "Units": {
+                    "type": "number",
+                    "minimum": 1
+                }
+            },
+            "additionalProperties": false
+        },
+        "Tag": {
+            "type": "object",
+            "properties": {
+                "Key": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 1
+                },
+                "Value": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "minLength": 0
+                }
+            },
+            "required": [
+                "Key",
+                "Value"
+            ],
+            "additionalProperties": false
+        },
+        "TextDocumentStatistics": {
+            "type": "object",
+            "properties": {
+                "IndexedTextBytes": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "IndexedTextDocumentCount": {
+                    "type": "number",
+                    "minimum": 0
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "properties": {
+        "ApplicationId": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
+        },
+        "CapacityUnitConfiguration": {
+            "$ref": "#/definitions/StorageCapacityUnitConfiguration"
+        },
+        "CreatedAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "Description": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0,
+            "pattern": "^\\P{C}*$"
+        },
+        "DocumentAttributeConfigurations": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/DocumentAttributeConfiguration"
+            },
+            "maxItems": 500,
+            "minItems": 1
+        },
+        "IndexId": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
+        },
+        "IndexStatistics": {
+            "$ref": "#/definitions/IndexStatistics"
+        },
+        "Name": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+        },
+        "Status": {
+            "$ref": "#/definitions/IndexStatus"
+        },
+        "Tags": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/Tag"
+            },
+            "maxItems": 200,
+            "minItems": 0
+        },
+        "UpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "Name"
+    ],
+    "readOnlyProperties": [
+        "/properties/CreatedAt",
+        "/properties/IndexId",
+        "/properties/IndexStatistics",
+        "/properties/Status",
+        "/properties/UpdatedAt"
+    ],
+    "createOnlyProperties": [
+        "/properties/ApplicationId"
+    ],
+    "primaryIdentifier": [
+        "/properties/ApplicationId",
+        "/properties/IndexId"
+    ],
+    "handlers": {
+        "create": {
+            "permissions": [
+                "qbusiness:CreateIndex",
+                "qbusiness:DescribeIndex",
+                "qbusiness:ListTagsForResource",
+                "qbusiness:TagResource"
+            ]
+        },
+        "read": {
+            "permissions": [
+                "qbusiness:DescribeIndex",
+                "qbusiness:ListTagsForResource"
+            ]
+        },
+        "update": {
+            "permissions": [
+                "qbusiness:DescribeIndex",
+                "qbusiness:ListTagsForResource",
+                "qbusiness:TagResource",
+                "qbusiness:UntagResource",
+                "qbusiness:UpdateIndex"
+            ]
+        },
+        "delete": {
+            "permissions": [
+                "qbusiness:DeleteIndex",
+                "qbusiness:DescribeIndex"
+            ]
+        },
+        "list": {
+            "permissions": [
+                "qbusiness:ListIndices"
+            ]
+        }
+    },
+    "additionalProperties": false
+}

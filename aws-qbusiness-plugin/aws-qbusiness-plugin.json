@@ -1,0 +1,164 @@
+{
+    "typeName": "AWS::QBusiness::Plugin",
+    "description": "Definition of AWS::QBusiness::Plugin Resource Type",
+    "definitions": {
+        "PluginState": {
+            "type": "string",
+            "enum": [
+                "ENABLED",
+                "DISABLED"
+            ]
+        },
+        "PluginType": {
+            "type": "string",
+            "enum": [
+                "SERVICE_NOW",
+                "SALESFORCE",
+                "JIRA",
+                "ZENDESK"
+            ]
+        },
+        "Tag": {
+            "type": "object",
+            "properties": {
+                "Key": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 1
+                },
+                "Value": {
+                    "type": "string",
+                    "maxLength": 256,
+                    "minLength": 0
+                }
+            },
+            "required": [
+                "Key",
+                "Value"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "properties": {
+        "ApplicationId": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
+        },
+        "CreatedAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "DisplayName": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+        },
+        "LastUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "PluginArn": {
+            "type": "string",
+            "maxLength": 1284,
+            "minLength": 0,
+            "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        },
+        "PluginId": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 36,
+            "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
+        },
+        "RoleArn": {
+            "type": "string",
+            "maxLength": 1284,
+            "minLength": 0,
+            "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        },
+        "SecretArn": {
+            "type": "string",
+            "maxLength": 1284,
+            "minLength": 0,
+            "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        },
+        "ServerUrl": {
+            "type": "string",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^(https?|ftp|file)://([^\\s]*)$"
+        },
+        "State": {
+            "$ref": "#/definitions/PluginState"
+        },
+        "Tags": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/Tag"
+            },
+            "maxItems": 200,
+            "minItems": 0
+        },
+        "Type": {
+            "$ref": "#/definitions/PluginType"
+        }
+    },
+    "required": [
+        "DisplayName",
+        "ServerUrl",
+        "Type"
+    ],
+    "readOnlyProperties": [
+        "/properties/CreatedAt",
+        "/properties/LastUpdatedAt",
+        "/properties/PluginArn",
+        "/properties/PluginId"
+    ],
+    "createOnlyProperties": [
+        "/properties/ApplicationId",
+        "/properties/Type"
+    ],
+    "primaryIdentifier": [
+        "/properties/ApplicationId",
+        "/properties/PluginId"
+    ],
+    "handlers": {
+        "create": {
+            "permissions": [
+                "qbusiness:CreatePlugin",
+                "qbusiness:GetPlugin",
+                "qbusiness:ListTagsForResource",
+                "qbusiness:TagResource"
+            ]
+        },
+        "read": {
+            "permissions": [
+                "qbusiness:GetPlugin",
+                "qbusiness:ListTagsForResource"
+            ]
+        },
+        "update": {
+            "permissions": [
+                "qbusiness:GetPlugin",
+                "qbusiness:ListTagsForResource",
+                "qbusiness:TagResource",
+                "qbusiness:UntagResource",
+                "qbusiness:UpdatePlugin"
+            ]
+        },
+        "delete": {
+            "permissions": [
+                "qbusiness:DeletePlugin",
+                "qbusiness:GetPlugin"
+            ]
+        },
+        "list": {
+            "permissions": [
+                "qbusiness:ListPlugins"
+            ]
+        }
+    },
+    "additionalProperties": false
+}
