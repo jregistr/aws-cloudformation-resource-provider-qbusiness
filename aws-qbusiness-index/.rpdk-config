@@ -2,7 +2,7 @@
     "artifact_type": "RESOURCE",
     "typeName": "AWS::QBusiness::Index",
     "language": "java",
-    "runtime": "java8",
+    "runtime": "java17",
     "entrypoint": "software.amazon.qbusiness.index.HandlerWrapper::handleRequest",
     "testEntrypoint": "software.amazon.qbusiness.index.HandlerWrapper::testEntrypoint",
     "settings": {
@@ -25,5 +25,6 @@
         "codegen_template_path": "guided_aws",
         "protocolVersion": "2.0.0"
     },
+    "logProcessorEnabled": "true",
     "executableEntrypoint": "software.amazon.qbusiness.index.HandlerWrapperExecutable"
 }

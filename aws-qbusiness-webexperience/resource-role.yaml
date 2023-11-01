@@ -30,11 +30,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                - "initech:CreateReport"
-                - "initech:DeleteReport"
-                - "initech:DescribeReport"
-                - "initech:ListReports"
-                - "initech:UpdateReport"
+                - "qbusiness:CreateWebExperience"
+                - "qbusiness:DeleteWebExperience"
+                - "qbusiness:DescribeWebExperience"
+                - "qbusiness:ListTagsForResource"
+                - "qbusiness:ListWebExperiences"
+                - "qbusiness:TagResource"
+                - "qbusiness:UntagResource"
+                - "qbusiness:UpdateWebExperience"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:

@@ -30,11 +30,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                - "initech:CreateReport"
-                - "initech:DeleteReport"
-                - "initech:DescribeReport"
-                - "initech:ListReports"
-                - "initech:UpdateReport"
+                - "qbusiness:AddRetriever"
+                - "qbusiness:DeleteRetriever"
+                - "qbusiness:DescribeRetriever"
+                - "qbusiness:ListRetrievers"
+                - "qbusiness:ListTagsForResource"
+                - "qbusiness:TagResource"
+                - "qbusiness:UntagResource"
+                - "qbusiness:UpdateRetriever"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:

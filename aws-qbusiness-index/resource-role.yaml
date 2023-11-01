@@ -30,11 +30,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                - "initech:CreateReport"
-                - "initech:DeleteReport"
-                - "initech:DescribeReport"
-                - "initech:ListReports"
-                - "initech:UpdateReport"
+                - "qbusiness:CreateIndex"
+                - "qbusiness:DeleteIndex"
+                - "qbusiness:DescribeIndex"
+                - "qbusiness:ListIndices"
+                - "qbusiness:ListTagsForResource"
+                - "qbusiness:TagResource"
+                - "qbusiness:UntagResource"
+                - "qbusiness:UpdateIndex"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:
