@@ -1,7 +1,5 @@
 ## Gradle files
 .gradle/
-buildSrc/.gradle/
-buildSrc/build
 gradlew*
 gradle
 
@@ -19,11 +17,24 @@ gradle
 .factorypath
 .project
 .settings/
+target/
+build
+docs/
+
+# our logs
+rpdk.log*
+
+# contains credentials
+sam-tests/
 
 
 ## Idea
-.idea/
+.idea
 *.iml
+out.java
+out/
+.settings
+.project
 
 ## Visual Studio Code
 .vscode/*
@@ -38,3 +49,4 @@ gradle
 .DS_Store
 .AppleDouble
 .LSOverride
+._*
