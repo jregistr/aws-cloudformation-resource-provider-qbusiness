@@ -21,4 +21,3 @@ Resources:
       Handler: software.amazon.qbusiness.webexperience.HandlerWrapper::testEntrypoint
       Runtime: java8
       CodeUri: ./target/aws-qbusiness-webexperience-handler-1.0-SNAPSHOT.jar
-

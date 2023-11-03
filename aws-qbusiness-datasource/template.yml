@@ -21,4 +21,3 @@ Resources:
       Handler: software.amazon.qbusiness.datasource.HandlerWrapper::testEntrypoint
       Runtime: java8
       CodeUri: ./target/aws-qbusiness-datasource-handler-1.0-SNAPSHOT.jar
-

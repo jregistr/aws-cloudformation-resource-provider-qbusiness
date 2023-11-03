@@ -1,217 +1,217 @@
 {
-    "typeName": "AWS::QBusiness::Application",
-    "description": "Definition of AWS::QBusiness::Application Resource Type",
-    "definitions": {
-        "ApplicationStatus": {
-            "type": "string",
-            "enum": [
-                "CREATING",
-                "ACTIVE",
-                "DELETING",
-                "FAILED",
-                "UPDATING"
-            ]
-        },
-        "ChatCapacityUnitConfiguration": {
-            "type": "object",
-            "properties": {
-                "Users": {
-                    "type": "number",
-                    "minimum": 1
-                }
-            },
-            "additionalProperties": false
-        },
-        "ChatConfiguration": {
-            "type": "object",
-            "properties": {
-                "ResponseConfiguration": {
-                    "$ref": "#/definitions/ResponseConfiguration"
-                }
-            },
-            "additionalProperties": false
-        },
-        "ResponseConfiguration": {
-            "type": "object",
-            "properties": {
-                "RetrievalResponseControlStatus": {
-                    "$ref": "#/definitions/ResponseControlStatus"
-                },
-                "NonRetrievalResponseControlStatus": {
-                    "$ref": "#/definitions/ResponseControlStatus"
-                },
-                "BlockedTopicsPrompt": {
-                    "type": "string",
-                    "maxLength": 350,
-                    "minLength": 1
-                },
-                "BlockedPhrases": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "maxLength": 36,
-                        "minLength": 1,
-                        "pattern": "^[A-Za-z0-9' -]+$"
-                    },
-                    "maxItems": 20,
-                    "minItems": 0
-                },
-                "DefaultMessage": {
-                    "type": "string",
-                    "maxLength": 350,
-                    "minLength": 1
-                }
-            },
-            "required": [
-                "NonRetrievalResponseControlStatus",
-                "RetrievalResponseControlStatus"
-            ],
-            "additionalProperties": false
-        },
-        "ResponseControlStatus": {
-            "type": "string",
-            "enum": [
-                "ENABLED",
-                "DISABLED"
-            ]
-        },
-        "ServerSideEncryptionConfiguration": {
-            "type": "object",
-            "properties": {
-                "KmsKeyId": {
-                    "type": "string",
-                    "maxLength": 2048,
-                    "minLength": 1
-                }
-            },
-            "additionalProperties": false
-        },
-        "Tag": {
-            "type": "object",
-            "properties": {
-                "Key": {
-                    "type": "string",
-                    "maxLength": 128,
-                    "minLength": 1
-                },
-                "Value": {
-                    "type": "string",
-                    "maxLength": 256,
-                    "minLength": 0
-                }
-            },
-            "required": [
-                "Key",
-                "Value"
-            ],
-            "additionalProperties": false
-        }
+  "typeName": "AWS::QBusiness::Application",
+  "description": "Definition of AWS::QBusiness::Application Resource Type",
+  "definitions": {
+    "ApplicationStatus": {
+      "type": "string",
+      "enum": [
+        "CREATING",
+        "ACTIVE",
+        "DELETING",
+        "FAILED",
+        "UPDATING"
+      ]
     },
-    "properties": {
-        "ApplicationId": {
+    "ChatCapacityUnitConfiguration": {
+      "type": "object",
+      "properties": {
+        "Users": {
+          "type": "number",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "ChatConfiguration": {
+      "type": "object",
+      "properties": {
+        "ResponseConfiguration": {
+          "$ref": "#/definitions/ResponseConfiguration"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ResponseConfiguration": {
+      "type": "object",
+      "properties": {
+        "RetrievalResponseControlStatus": {
+          "$ref": "#/definitions/ResponseControlStatus"
+        },
+        "NonRetrievalResponseControlStatus": {
+          "$ref": "#/definitions/ResponseControlStatus"
+        },
+        "BlockedTopicsPrompt": {
+          "type": "string",
+          "maxLength": 350,
+          "minLength": 1
+        },
+        "BlockedPhrases": {
+          "type": "array",
+          "items": {
             "type": "string",
             "maxLength": 36,
-            "minLength": 36,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
-        },
-        "CapacityUnitConfiguration": {
-            "$ref": "#/definitions/ChatCapacityUnitConfiguration"
-        },
-        "ChatConfiguration": {
-            "$ref": "#/definitions/ChatConfiguration"
-        },
-        "CreatedAt": {
-            "type": "string",
-            "format": "date-time"
-        },
-        "Description": {
-            "type": "string",
-            "maxLength": 1000,
-            "minLength": 0,
-            "pattern": "^\\P{C}*$"
-        },
-        "Name": {
-            "type": "string",
-            "maxLength": 1000,
             "minLength": 1,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+            "pattern": "^[A-Za-z0-9' -]+$"
+          },
+          "maxItems": 20,
+          "minItems": 0
         },
-        "RoleArn": {
-            "type": "string",
-            "maxLength": 1284,
-            "minLength": 0,
-            "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
-        },
-        "ServerSideEncryptionConfiguration": {
-            "$ref": "#/definitions/ServerSideEncryptionConfiguration"
-        },
-        "Status": {
-            "$ref": "#/definitions/ApplicationStatus"
-        },
-        "Tags": {
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/Tag"
-            },
-            "maxItems": 200,
-            "minItems": 0
-        },
-        "UpdatedAt": {
-            "type": "string",
-            "format": "date-time"
+        "DefaultMessage": {
+          "type": "string",
+          "maxLength": 350,
+          "minLength": 1
         }
+      },
+      "required": [
+        "NonRetrievalResponseControlStatus",
+        "RetrievalResponseControlStatus"
+      ],
+      "additionalProperties": false
     },
-    "required": [
-        "Name",
-        "RoleArn"
-    ],
-    "readOnlyProperties": [
-        "/properties/ApplicationId",
-        "/properties/CreatedAt",
-        "/properties/Status",
-        "/properties/UpdatedAt"
-    ],
-    "createOnlyProperties": [
-        "/properties/ServerSideEncryptionConfiguration"
-    ],
-    "primaryIdentifier": [
-        "/properties/ApplicationId"
-    ],
-    "handlers": {
-        "create": {
-            "permissions": [
-                "qbusiness:CreateApplication",
-                "qbusiness:DescribeApplication",
-                "qbusiness:ListTagsForResource",
-                "qbusiness:TagResource"
-            ]
-        },
-        "read": {
-            "permissions": [
-                "qbusiness:DescribeApplication",
-                "qbusiness:ListTagsForResource"
-            ]
-        },
-        "update": {
-            "permissions": [
-                "qbusiness:DescribeApplication",
-                "qbusiness:ListTagsForResource",
-                "qbusiness:TagResource",
-                "qbusiness:UntagResource",
-                "qbusiness:UpdateApplication"
-            ]
-        },
-        "delete": {
-            "permissions": [
-                "qbusiness:DeleteApplication",
-                "qbusiness:DescribeApplication"
-            ]
-        },
-        "list": {
-            "permissions": [
-                "qbusiness:ListApplications"
-            ]
+    "ResponseControlStatus": {
+      "type": "string",
+      "enum": [
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
+    "ServerSideEncryptionConfiguration": {
+      "type": "object",
+      "properties": {
+        "KmsKeyId": {
+          "type": "string",
+          "maxLength": 2048,
+          "minLength": 1
         }
+      },
+      "additionalProperties": false
     },
-    "additionalProperties": false
+    "Tag": {
+      "type": "object",
+      "properties": {
+        "Key": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "Value": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 0
+        }
+      },
+      "required": [
+        "Key",
+        "Value"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "ApplicationId": {
+      "type": "string",
+      "maxLength": 36,
+      "minLength": 36,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
+    },
+    "CapacityUnitConfiguration": {
+      "$ref": "#/definitions/ChatCapacityUnitConfiguration"
+    },
+    "ChatConfiguration": {
+      "$ref": "#/definitions/ChatConfiguration"
+    },
+    "CreatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Description": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 0,
+      "pattern": "^\\P{C}*$"
+    },
+    "Name": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 1,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+    },
+    "RoleArn": {
+      "type": "string",
+      "maxLength": 1284,
+      "minLength": 0,
+      "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+    },
+    "ServerSideEncryptionConfiguration": {
+      "$ref": "#/definitions/ServerSideEncryptionConfiguration"
+    },
+    "Status": {
+      "$ref": "#/definitions/ApplicationStatus"
+    },
+    "Tags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Tag"
+      },
+      "maxItems": 200,
+      "minItems": 0
+    },
+    "UpdatedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "Name",
+    "RoleArn"
+  ],
+  "readOnlyProperties": [
+    "/properties/ApplicationId",
+    "/properties/CreatedAt",
+    "/properties/Status",
+    "/properties/UpdatedAt"
+  ],
+  "createOnlyProperties": [
+    "/properties/ServerSideEncryptionConfiguration"
+  ],
+  "primaryIdentifier": [
+    "/properties/ApplicationId"
+  ],
+  "handlers": {
+    "create": {
+      "permissions": [
+        "qbusiness:CreateApplication",
+        "qbusiness:DescribeApplication",
+        "qbusiness:ListTagsForResource",
+        "qbusiness:TagResource"
+      ]
+    },
+    "read": {
+      "permissions": [
+        "qbusiness:DescribeApplication",
+        "qbusiness:ListTagsForResource"
+      ]
+    },
+    "update": {
+      "permissions": [
+        "qbusiness:DescribeApplication",
+        "qbusiness:ListTagsForResource",
+        "qbusiness:TagResource",
+        "qbusiness:UntagResource",
+        "qbusiness:UpdateApplication"
+      ]
+    },
+    "delete": {
+      "permissions": [
+        "qbusiness:DeleteApplication",
+        "qbusiness:DescribeApplication"
+      ]
+    },
+    "list": {
+      "permissions": [
+        "qbusiness:ListApplications"
+      ]
+    }
+  },
+  "additionalProperties": false
 }

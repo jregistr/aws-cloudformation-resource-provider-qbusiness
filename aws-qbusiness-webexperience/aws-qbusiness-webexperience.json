@@ -1,203 +1,203 @@
 {
-    "typeName": "AWS::QBusiness::WebExperience",
-    "description": "Definition of AWS::QBusiness::WebExperience Resource Type",
-    "definitions": {
+  "typeName": "AWS::QBusiness::WebExperience",
+  "description": "Definition of AWS::QBusiness::WebExperience Resource Type",
+  "definitions": {
+    "SamlConfigurationOptions": {
+      "type": "object",
+      "properties": {
+        "MetadataXML": {
+          "type": "string",
+          "maxLength": 10000000,
+          "minLength": 1000,
+          "pattern": "^.*$"
+        },
+        "RoleArn": {
+          "type": "string",
+          "maxLength": 1284,
+          "minLength": 0,
+          "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        },
+        "UserAttribute": {
+          "type": "string",
+          "maxLength": 2048,
+          "minLength": 1
+        },
+        "UserGroupAttribute": {
+          "type": "string",
+          "maxLength": 2048,
+          "minLength": 1
+        }
+      },
+      "required": [
+        "MetadataXML",
+        "RoleArn"
+      ],
+      "additionalProperties": false
+    },
+    "Tag": {
+      "type": "object",
+      "properties": {
+        "Key": {
+          "type": "string",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "Value": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 0
+        }
+      },
+      "required": [
+        "Key",
+        "Value"
+      ],
+      "additionalProperties": false
+    },
+    "WebExperienceAuthConfiguration": {
+      "type": "object",
+      "properties": {
         "SamlConfigurationOptions": {
-            "type": "object",
-            "properties": {
-                "MetadataXML": {
-                    "type": "string",
-                    "maxLength": 10000000,
-                    "minLength": 1000,
-                    "pattern": "^.*$"
-                },
-                "RoleArn": {
-                    "type": "string",
-                    "maxLength": 1284,
-                    "minLength": 0,
-                    "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
-                },
-                "UserAttribute": {
-                    "type": "string",
-                    "maxLength": 2048,
-                    "minLength": 1
-                },
-                "UserGroupAttribute": {
-                    "type": "string",
-                    "maxLength": 2048,
-                    "minLength": 1
-                }
-            },
-            "required": [
-                "MetadataXML",
-                "RoleArn"
-            ],
-            "additionalProperties": false
-        },
-        "Tag": {
-            "type": "object",
-            "properties": {
-                "Key": {
-                    "type": "string",
-                    "maxLength": 128,
-                    "minLength": 1
-                },
-                "Value": {
-                    "type": "string",
-                    "maxLength": 256,
-                    "minLength": 0
-                }
-            },
-            "required": [
-                "Key",
-                "Value"
-            ],
-            "additionalProperties": false
-        },
-        "WebExperienceAuthConfiguration": {
-            "type": "object",
-            "properties": {
-                "SamlConfigurationOptions": {
-                    "$ref": "#/definitions/SamlConfigurationOptions"
-                }
-            },
-            "additionalProperties": false
-        },
-        "WebExperienceEndpointConfig": {
-            "type": "object",
-            "properties": {
-                "Type": {
-                    "$ref": "#/definitions/WebExperienceEndpointType"
-                },
-                "Endpoint": {
-                    "type": "string",
-                    "maxLength": 2048,
-                    "minLength": 1,
-                    "pattern": "^\\P{C}*$"
-                }
-            },
-            "additionalProperties": false
-        },
-        "WebExperienceEndpointType": {
-            "type": "string",
-            "enum": [
-                "HOME"
-            ]
-        },
-        "WebExperienceStatus": {
-            "type": "string",
-            "enum": [
-                "CREATING",
-                "ACTIVE",
-                "DELETING",
-                "FAILED",
-                "PENDING_AUTH_CONFIG"
-            ]
+          "$ref": "#/definitions/SamlConfigurationOptions"
         }
+      },
+      "additionalProperties": false
     },
-    "properties": {
-        "ApplicationId": {
-            "type": "string",
-            "maxLength": 36,
-            "minLength": 36,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
+    "WebExperienceEndpointConfig": {
+      "type": "object",
+      "properties": {
+        "Type": {
+          "$ref": "#/definitions/WebExperienceEndpointType"
         },
-        "AuthenticationConfiguration": {
-            "$ref": "#/definitions/WebExperienceAuthConfiguration"
-        },
-        "CreatedAt": {
-            "type": "string",
-            "format": "date-time"
-        },
-        "Endpoints": {
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/WebExperienceEndpointConfig"
-            }
-        },
-        "Status": {
-            "$ref": "#/definitions/WebExperienceStatus"
-        },
-        "Subtitle": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 0,
-            "pattern": "^\\P{C}*$"
-        },
-        "Tags": {
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/Tag"
-            },
-            "maxItems": 200,
-            "minItems": 0
-        },
-        "Title": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 0,
-            "pattern": "^\\P{C}*$"
-        },
-        "UpdatedAt": {
-            "type": "string",
-            "format": "date-time"
-        },
-        "WebExperienceId": {
-            "type": "string",
-            "maxLength": 36,
-            "minLength": 36,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]*$"
+        "Endpoint": {
+          "type": "string",
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^\\P{C}*$"
         }
+      },
+      "additionalProperties": false
     },
-    "readOnlyProperties": [
-        "/properties/CreatedAt",
-        "/properties/Endpoints",
-        "/properties/Status",
-        "/properties/UpdatedAt",
-        "/properties/WebExperienceId"
-    ],
-    "createOnlyProperties": [
-        "/properties/ApplicationId"
-    ],
-    "primaryIdentifier": [
-        "/properties/ApplicationId",
-        "/properties/WebExperienceId"
-    ],
-    "handlers": {
-        "create": {
-            "permissions": [
-                "qbusiness:CreateWebExperience",
-                "qbusiness:DescribeWebExperience",
-                "qbusiness:ListTagsForResource",
-                "qbusiness:TagResource"
-            ]
-        },
-        "read": {
-            "permissions": [
-                "qbusiness:DescribeWebExperience",
-                "qbusiness:ListTagsForResource"
-            ]
-        },
-        "update": {
-            "permissions": [
-                "qbusiness:DescribeWebExperience",
-                "qbusiness:ListTagsForResource",
-                "qbusiness:TagResource",
-                "qbusiness:UntagResource",
-                "qbusiness:UpdateWebExperience"
-            ]
-        },
-        "delete": {
-            "permissions": [
-                "qbusiness:DeleteWebExperience",
-                "qbusiness:DescribeWebExperience"
-            ]
-        },
-        "list": {
-            "permissions": [
-                "qbusiness:ListWebExperiences"
-            ]
-        }
+    "WebExperienceEndpointType": {
+      "type": "string",
+      "enum": [
+        "HOME"
+      ]
     },
-    "additionalProperties": false
+    "WebExperienceStatus": {
+      "type": "string",
+      "enum": [
+        "CREATING",
+        "ACTIVE",
+        "DELETING",
+        "FAILED",
+        "PENDING_AUTH_CONFIG"
+      ]
+    }
+  },
+  "properties": {
+    "ApplicationId": {
+      "type": "string",
+      "maxLength": 36,
+      "minLength": 36,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
+    },
+    "AuthenticationConfiguration": {
+      "$ref": "#/definitions/WebExperienceAuthConfiguration"
+    },
+    "CreatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "Endpoints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/WebExperienceEndpointConfig"
+      }
+    },
+    "Status": {
+      "$ref": "#/definitions/WebExperienceStatus"
+    },
+    "Subtitle": {
+      "type": "string",
+      "maxLength": 500,
+      "minLength": 0,
+      "pattern": "^\\P{C}*$"
+    },
+    "Tags": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Tag"
+      },
+      "maxItems": 200,
+      "minItems": 0
+    },
+    "Title": {
+      "type": "string",
+      "maxLength": 500,
+      "minLength": 0,
+      "pattern": "^\\P{C}*$"
+    },
+    "UpdatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "WebExperienceId": {
+      "type": "string",
+      "maxLength": 36,
+      "minLength": 36,
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]*$"
+    }
+  },
+  "readOnlyProperties": [
+    "/properties/CreatedAt",
+    "/properties/Endpoints",
+    "/properties/Status",
+    "/properties/UpdatedAt",
+    "/properties/WebExperienceId"
+  ],
+  "createOnlyProperties": [
+    "/properties/ApplicationId"
+  ],
+  "primaryIdentifier": [
+    "/properties/ApplicationId",
+    "/properties/WebExperienceId"
+  ],
+  "handlers": {
+    "create": {
+      "permissions": [
+        "qbusiness:CreateWebExperience",
+        "qbusiness:DescribeWebExperience",
+        "qbusiness:ListTagsForResource",
+        "qbusiness:TagResource"
+      ]
+    },
+    "read": {
+      "permissions": [
+        "qbusiness:DescribeWebExperience",
+        "qbusiness:ListTagsForResource"
+      ]
+    },
+    "update": {
+      "permissions": [
+        "qbusiness:DescribeWebExperience",
+        "qbusiness:ListTagsForResource",
+        "qbusiness:TagResource",
+        "qbusiness:UntagResource",
+        "qbusiness:UpdateWebExperience"
+      ]
+    },
+    "delete": {
+      "permissions": [
+        "qbusiness:DeleteWebExperience",
+        "qbusiness:DescribeWebExperience"
+      ]
+    },
+    "list": {
+      "permissions": [
+        "qbusiness:ListWebExperiences"
+      ]
+    }
+  },
+  "additionalProperties": false
 }

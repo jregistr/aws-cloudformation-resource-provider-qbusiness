@@ -21,4 +21,3 @@ Resources:
       Handler: software.amazon.qbusiness.index.HandlerWrapper::testEntrypoint
       Runtime: java8
       CodeUri: ./target/aws-qbusiness-index-handler-1.0-SNAPSHOT.jar
-
