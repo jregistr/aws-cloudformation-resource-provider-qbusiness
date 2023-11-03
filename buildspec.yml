@@ -1,0 +1,27 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      java: corretto17
+      python: 3.11
+    commands:
+      - pip install pre-commit cloudformation-cli-java-plugin
+  pre_build:
+    commands:
+      - mvn org.apache.maven.plugins:maven-install-plugin:3.0.0-M1:install-file --batch-mode -Dfile=$CODEBUILD_SRC_DIR_JAVASDK/AwsJavaSdk-QBusiness-2.0.jar -DgroupId=software.amazon.awssdk -DartifactId=qbusiness-internal -Dversion=2.0 -Dpackaging=jar
+  build:
+    commands:
+      - echo "Verify Application" && cd $CODEBUILD_SRC_DIR/aws-qbusiness-application && mvn -B clean verify --no-transfer-progress
+      - echo "Verify Index" && cd $CODEBUILD_SRC_DIR/aws-qbusiness-index && mvn -B clean verify --no-transfer-progress
+      - echo "Verify Retriever" && cd $CODEBUILD_SRC_DIR/aws-qbusiness-retriever && mvn -B clean verify --no-transfer-progress
+      - echo "Verify Plugin" && cd $CODEBUILD_SRC_DIR/aws-qbusiness-plugin && mvn -B clean verify --no-transfer-progress
+      - echo "Verify WebExperience" && cd $CODEBUILD_SRC_DIR/aws-qbusiness-webexperience && mvn -B clean verify --no-transfer-progress
+      - echo "Verify DataSource" && cd $CODEBUILD_SRC_DIR/aws-qbusiness-datasource && mvn -B clean verify --no-transfer-progress
+  post_build:
+    commands:
+      - echo "Application Logs:" && cat $CODEBUILD_SRC_DIR/aws-qbusiness-application/rpdk.log && echo "End Application Logs"
+      - echo "Index Logs:" && cat $CODEBUILD_SRC_DIR/aws-qbusiness-index/rpdk.log && echo "End Index Logs"
+      - echo "Retriever Logs:" && cat $CODEBUILD_SRC_DIR/aws-qbusiness-retriever/rpdk.log && echo "End Retriever Logs"
+      - echo "Plugin Logs:" && cat $CODEBUILD_SRC_DIR/aws-qbusiness-plugin/rpdk.log && echo "End Plugin Logs"
+      - echo "WebExperience Logs:" && cat $CODEBUILD_SRC_DIR/aws-qbusiness-webexperience/rpdk.log && echo "End WebExperience Logs"
+      - echo "DataSource Logs:" && cat $CODEBUILD_SRC_DIR/aws-qbusiness-datasource/rpdk.log && echo "End DataSource Logs"
