@@ -1,7 +1,7 @@
 package software.amazon.qbusiness.datasource;
 
 import java.time.Duration;
-import software.amazon.awssdk.core.SdkClient;
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.OperationStatus;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -27,15 +27,15 @@ public class DeleteHandlerTest extends AbstractTestBase {
     private AmazonWebServicesClientProxy proxy;
 
     @Mock
-    private ProxyClient<SdkClient> proxyClient;
+    private ProxyClient<QBusinessClient> proxyClient;
 
     @Mock
-    SdkClient sdkClient;
+    QBusinessClient sdkClient;
 
     @BeforeEach
     public void setup() {
         proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-        sdkClient = mock(SdkClient.class);
+        sdkClient = mock(QBusinessClient.class);
         proxyClient = MOCK_PROXY(proxy, sdkClient);
     }
 

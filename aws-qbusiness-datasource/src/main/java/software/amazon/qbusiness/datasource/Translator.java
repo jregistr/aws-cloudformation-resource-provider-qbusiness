@@ -3,6 +3,12 @@ package software.amazon.qbusiness.datasource;
 import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
+import software.amazon.awssdk.services.qbusiness.model.AppliedChatConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.util.Collection;
 import java.util.List;
@@ -38,11 +44,18 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
-  static AwsRequest translateToReadRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L20-L24
-    return awsRequest;
+  static DescribeApplicationRequest translateToReadRequest(final ResourceModel model) {
+     return DescribeApplicationRequest.builder()
+          .applicationId(model.getApplicationId())
+          .build();
+  }
+
+  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+    var applicationArn = Utils.buildApplicationArn(request, model);
+
+    return ListTagsForResourceRequest.builder()
+        .resourceARN(applicationArn)
+        .build();
   }
 
   /**
@@ -50,10 +63,75 @@ public class Translator {
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L58-L73
+  static ResourceModel translateFromReadResponse(final DescribeApplicationResponse awsResponse) {
     return ResourceModel.builder()
-        //.someProperty(response.property())
+        .name(awsResponse.name())
+        .applicationId(awsResponse.applicationId())
+        .roleArn(awsResponse.roleArn())
+        .status(awsResponse.statusAsString())
+        .description(awsResponse.description())
+        .createdAt(awsResponse.createdAt().toString())
+        .updatedAt(awsResponse.updatedAt().toString())
+        .capacityUnitConfiguration(fromServiceChatCapacityConfiguration(awsResponse.capacityUnitConfiguration()))
+        .chatConfiguration(fromServiceChatConfiguration(awsResponse.chatConfiguration()))
+        .serverSideEncryptionConfiguration(fromServiceServerSideEncryptionConfig(awsResponse.serverSideEncryptionConfiguration()))
+        .build();
+  }
+
+  static ChatConfiguration fromServiceChatConfiguration(AppliedChatConfiguration chatConfiguration) {
+    if (chatConfiguration == null) {
+      return null;
+    }
+
+    software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration serviceResponseConfig = chatConfiguration.responseConfiguration();
+
+    if (serviceResponseConfig == null) {
+      return null;
+    }
+
+    return ChatConfiguration.builder()
+        .responseConfiguration(ResponseConfiguration.builder()
+            .blockedPhrases(serviceResponseConfig.blockedPhrases())
+            .blockedTopicsPrompt(serviceResponseConfig.blockedTopicsPrompt())
+            .defaultMessage(serviceResponseConfig.defaultMessage())
+            .nonRetrievalResponseControlStatus(serviceResponseConfig.nonRetrievalResponseControlStatusAsString())
+            .retrievalResponseControlStatus(serviceResponseConfig.retrievalResponseControlStatusAsString())
+            .build())
+        .build();
+  }
+
+  static ServerSideEncryptionConfiguration fromServiceServerSideEncryptionConfig(
+      software.amazon.awssdk.services.qbusiness.model.ServerSideEncryptionConfiguration serviceConfig
+  ) {
+    if (serviceConfig == null) {
+      return null;
+    }
+
+    return ServerSideEncryptionConfiguration.builder()
+        .kmsKeyId(serviceConfig.kmsKeyId())
+        .build();
+  }
+
+  static ChatCapacityUnitConfiguration fromServiceChatCapacityConfiguration(
+      software.amazon.awssdk.services.qbusiness.model.ChatCapacityUnitConfiguration responseChatCapacityUnitsConf
+  ) {
+
+    if (responseChatCapacityUnitsConf == null) {
+      return null;
+    }
+
+    return ChatCapacityUnitConfiguration.builder()
+        .users(Double.valueOf(responseChatCapacityUnitsConf.users()))
+        .build();
+  }
+
+  static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
+    if (listTagsResponse == null || !listTagsResponse.hasTags())  {
+      return model;
+    }
+
+    return model.toBuilder()
+        .tags(TagHelper.modelTagsFromServiceTags(listTagsResponse.tags()))
         .build();
   }
 
@@ -119,9 +197,7 @@ public class Translator {
   }
 
   private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
-    return Optional.ofNullable(collection)
-        .map(Collection::stream)
-        .orElseGet(Stream::empty);
+    return Optional.ofNullable(collection).stream().flatMap(Collection::stream);
   }
 
   /**

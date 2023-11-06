@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -15,8 +16,7 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import software.amazon.awssdk.awscore.AwsResponse;
 import software.amazon.awssdk.core.SdkClient;
-// TODO: Critical! Please replace the CloudFormation Tag model below with your service's own SDK Tag model
-import software.amazon.awssdk.services.cloudformation.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -185,15 +185,28 @@ public class TagHelper {
         return Sets.difference(new HashSet<>(previousTags), new HashSet<>(desiredTags));
     }
 
+    public static List<software.amazon.qbusiness.application.Tag> modelTagsFromServiceTags(
+        List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
+    ) {
+        return serviceTags.stream()
+            .map(serviceTag -> new software.amazon.qbusiness.application.Tag(serviceTag.key(), serviceTag.value()))
+            .toList();
+    }
+
 
     /**
      * tagResource during update
      *
      * Calls the service:TagResource API.
      */
-    private ProgressEvent<ResourceModel, CallbackContext>
-    tagResource(final AmazonWebServicesClientProxy proxy, final ProxyClient<SdkClient> serviceClient, final ResourceModel resourceModel,
-                final ResourceHandlerRequest<ResourceModel> handlerRequest, final CallbackContext callbackContext, final Map<String, String> addedTags, final Logger logger) {
+    private ProgressEvent<ResourceModel, CallbackContext> tagResource(
+        final AmazonWebServicesClientProxy proxy,
+        final ProxyClient<SdkClient> serviceClient,
+        final ResourceModel resourceModel,
+        final ResourceHandlerRequest<ResourceModel> handlerRequest,
+        final CallbackContext callbackContext,
+        final Map<String, String> addedTags,
+        final Logger logger) {
         // TODO: add log for adding tags to resources during update
         // e.g. logger.log(String.format("[UPDATE][IN PROGRESS] Going to add tags for ... resource: %s with AccountId: %s",
         // resourceModel.getResourceName(), handlerRequest.getAwsAccountId()));
