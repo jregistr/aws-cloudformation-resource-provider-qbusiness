@@ -3,8 +3,6 @@ package software.amazon.qbusiness.application;
 import static software.amazon.qbusiness.application.Constants.API_GET_APPLICATION;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -23,7 +21,7 @@ public class ReadHandler extends BaseHandlerStd {
 
     this.logger = logger;
 
-    this.logger.log("[StackId: %s, PrimaryId: %s] Entering Read Handler"
+    this.logger.log("[INFO] - [StackId: %s, PrimaryId: %s] Entering Read Handler"
         .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId()));
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
@@ -51,9 +49,5 @@ public class ReadHandler extends BaseHandlerStd {
                     )
                 )
         );
-  }
-
-  private DescribeApplicationResponse callGetApplication(DescribeApplicationRequest request, ProxyClient<QBusinessClient> client) {
-    return client.injectCredentialsAndInvokeV2(request, client.client()::describeApplication);
   }
 }

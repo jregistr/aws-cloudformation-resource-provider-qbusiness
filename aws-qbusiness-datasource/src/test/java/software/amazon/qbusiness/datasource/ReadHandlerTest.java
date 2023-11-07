@@ -17,12 +17,11 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
@@ -49,7 +48,6 @@ import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
-@ExtendWith(MockitoExtension.class)
 public class ReadHandlerTest extends AbstractTestBase {
 
   private static final String APP_ID = "63451660-1596-4f1a-a3c8-e5f4b33d9fe5";
@@ -63,13 +61,17 @@ public class ReadHandlerTest extends AbstractTestBase {
   @Mock
   private QBusinessClient sdkClient;
 
+  private AutoCloseable testMocks;
+
   private ReadHandler underTest;
 
-  ResourceHandlerRequest<ResourceModel> testRequest;
-  ResourceModel model;
+  private ResourceHandlerRequest<ResourceModel> testRequest;
+  private ResourceModel model;
+
 
   @BeforeEach
   public void setup() {
+    testMocks = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
     sdkClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, sdkClient);
@@ -88,9 +90,11 @@ public class ReadHandlerTest extends AbstractTestBase {
   }
 
   @AfterEach
-  public void tear_down() {
+  public void tear_down() throws Exception {
     verify(sdkClient, atLeastOnce()).serviceName();
     verifyNoMoreInteractions(sdkClient);
+
+    testMocks.close();
   }
 
   @Test
@@ -259,6 +263,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     // verify
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
     verify(sdkClient).describeApplication(any(DescribeApplicationRequest.class));
+    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();
   }

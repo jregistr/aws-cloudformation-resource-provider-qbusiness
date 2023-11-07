@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.datasource;
+package software.amazon.qbusiness.application;
 
 import java.util.Optional;
 
@@ -7,6 +7,8 @@ import org.json.JSONObject;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
+import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
@@ -15,6 +17,7 @@ import software.amazon.awssdk.services.qbusiness.model.ServiceQuotaExceededExcep
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
+import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.cloudformation.exceptions.BaseHandlerException;
 import software.amazon.cloudformation.exceptions.CfnAccessDeniedException;
 import software.amazon.cloudformation.exceptions.CfnAlreadyExistsException;
@@ -55,7 +58,20 @@ public abstract class BaseHandlerStd extends BaseHandler<CallbackContext> {
 
   protected ListTagsForResourceResponse callListTags(ListTagsForResourceRequest request, ProxyClient<QBusinessClient> client) {
     return client.injectCredentialsAndInvokeV2(request, client.client()::listTagsForResource);
+  }
 
+  protected DescribeApplicationResponse callGetApplication(DescribeApplicationRequest request, ProxyClient<QBusinessClient> client) {
+    return client.injectCredentialsAndInvokeV2(request, client.client()::describeApplication);
+  }
+
+  protected DescribeApplicationResponse getApplication(ResourceModel model, ProxyClient<QBusinessClient> proxyClient, Logger logger) {
+    if (StringUtils.isBlank(model.getApplicationId())) {
+      logger.log("[ERROR] Unexpected call to get application with a null or empty application ID: %s".formatted(model.getApplicationId()));
+      throw new NullPointerException();
+    }
+
+    DescribeApplicationRequest getApplicationRequest = Translator.translateToReadRequest(model);
+    return proxyClient.injectCredentialsAndInvokeV2(getApplicationRequest, proxyClient.client()::describeApplication);
   }
 
   protected ProgressEvent<ResourceModel, CallbackContext> handleError(

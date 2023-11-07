@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.webexperience;
+package software.amazon.qbusiness.application;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -185,12 +185,26 @@ public class TagHelper {
         return Sets.difference(new HashSet<>(previousTags), new HashSet<>(desiredTags));
     }
 
-    public static List<software.amazon.qbusiness.application.Tag> modelTagsFromServiceTags(
-        List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
+    public static List<software.amazon.qbusiness.application.Tag> cfnTagsFromServiceTags(
+        List<Tag> serviceTags
     ) {
         return serviceTags.stream()
             .map(serviceTag -> new software.amazon.qbusiness.application.Tag(serviceTag.key(), serviceTag.value()))
             .toList();
+    }
+
+    public static List<Tag> serviceTagsFromCfnTags(
+        Collection<software.amazon.qbusiness.application.Tag> modelTags
+    ) {
+        if (modelTags == null) {
+            return null;
+        }
+        return modelTags.stream()
+            .map(tag -> Tag.builder()
+                .key(tag.getKey())
+                .value(tag.getValue())
+                .build()
+            ).toList();
     }
 
 
@@ -212,7 +226,7 @@ public class TagHelper {
         // resourceModel.getResourceName(), handlerRequest.getAwsAccountId()));
 
         // TODO: change untagResource in the method to your service API according to your SDK
-        return proxy.initiate("AWS-QBusiness-WebExperience::TagOps", serviceClient, resourceModel, callbackContext)
+        return proxy.initiate("AWS-QBusiness-Application::TagOps", serviceClient, resourceModel, callbackContext)
             .translateToServiceRequest(model ->
                 Translator.tagResourceRequest(model, addedTags))
             .makeServiceCall((request, client) -> {
@@ -236,7 +250,7 @@ public class TagHelper {
         // resourceModel.getResourceName(), handlerRequest.getAwsAccountId()));
 
         // TODO: change untagResource in the method to your service API according to your SDK
-        return proxy.initiate("AWS-QBusiness-WebExperience::TagOps", serviceClient, resourceModel, callbackContext)
+        return proxy.initiate("AWS-QBusiness-Application::TagOps", serviceClient, resourceModel, callbackContext)
             .translateToServiceRequest(model ->
                 Translator.untagResourceRequest(model, removedTags))
             .makeServiceCall((request, client) -> {
