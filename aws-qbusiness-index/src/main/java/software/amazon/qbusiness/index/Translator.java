@@ -3,6 +3,11 @@ package software.amazon.qbusiness.index;
 import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
+import software.amazon.awssdk.services.qbusiness.model.DescribeIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.DescribeIndexResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.util.Collection;
 import java.util.List;
@@ -14,15 +19,16 @@ import java.util.stream.Stream;
 
 /**
  * This class is a centralized placeholder for
- *  - api request construction
- *  - object translation to/from aws sdk
- *  - resource model construction for read/list handlers
+ * - api request construction
+ * - object translation to/from aws sdk
+ * - resource model construction for read/list handlers
  */
 
 public class Translator {
 
   /**
    * Request to create a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -35,30 +41,73 @@ public class Translator {
 
   /**
    * Request to read a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
-  static AwsRequest translateToReadRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L20-L24
-    return awsRequest;
+  static DescribeIndexRequest translateToReadRequest(final ResourceModel model) {
+    return DescribeIndexRequest.builder()
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .build();
+  }
+
+  /**
+   * Request to list tags for a resource
+   *
+   * @param request resource handler request for the resource model
+   * @param model resource model
+   * @return awsRequest the aws service request to list tags for a resource
+   */
+  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+    var indexArn = Utils.buildIndexArn(request, model);
+
+    return ListTagsForResourceRequest.builder()
+        .resourceARN(indexArn)
+        .build();
   }
 
   /**
    * Translates resource object from sdk into a resource model
+   *
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L58-L73
+  static ResourceModel translateFromReadResponse(final DescribeIndexResponse awsResponse) {
     return ResourceModel.builder()
-        //.someProperty(response.property())
+        .name(awsResponse.name())
+        .applicationId(awsResponse.applicationId())
+        .indexId(awsResponse.indexId())
+        .indexStatistics(fromServiceIndexStatistics(awsResponse.indexStatistics()))
+        .status(awsResponse.statusAsString())
+        .description(awsResponse.description())
+        .documentAttributeConfigurations(fromServiceDocumentAttributeConfigurations(awsResponse.documentAttributeConfigurations()))
+        .createdAt(awsResponse.createdAt().toString())
+        .updatedAt(awsResponse.updatedAt().toString())
+        .capacityUnitConfiguration(fromServiceCapacityUnitConfiguration(awsResponse.capacityUnitConfiguration()))
+        .build();
+  }
+
+  /**
+   * Request to add tags to resource model
+   *
+   * @param listTagsResponse response from list tags
+   * @param model resource model
+   * @return model with tags added if they exist
+   */
+  static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
+    if (listTagsResponse == null || !listTagsResponse.hasTags()) {
+      return model;
+    }
+
+    return model.toBuilder()
+        .tags(TagHelper.modelTagsFromServiceTags(listTagsResponse.tags()))
         .build();
   }
 
   /**
    * Request to delete a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
@@ -71,6 +120,7 @@ public class Translator {
 
   /**
    * Request to update properties of a previously created resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
@@ -83,6 +133,7 @@ public class Translator {
 
   /**
    * Request to update some other properties that could not be provisioned through first update request
+   *
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
@@ -94,6 +145,7 @@ public class Translator {
 
   /**
    * Request to list resources
+   *
    * @param nextToken token passed to the aws service list resources request
    * @return awsRequest the aws service request to list resources within aws account
    */
@@ -106,6 +158,7 @@ public class Translator {
 
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
+   *
    * @param awsResponse the aws service describe resource response
    * @return list of resource models
    */
@@ -126,6 +179,7 @@ public class Translator {
 
   /**
    * Request to add tags to a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -138,6 +192,7 @@ public class Translator {
 
   /**
    * Request to add tags to a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -146,5 +201,58 @@ public class Translator {
     // TODO: construct a request
     // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
     return awsRequest;
+  }
+
+  private static StorageCapacityUnitConfiguration fromServiceCapacityUnitConfiguration(
+      final software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration storageCapacityUnitConfiguration) {
+
+    if (storageCapacityUnitConfiguration == null) {
+      return null;
+    }
+
+    return StorageCapacityUnitConfiguration.builder()
+        .units(Double.valueOf(storageCapacityUnitConfiguration.units()))
+        .build();
+  }
+
+  private static List<DocumentAttributeConfiguration> fromServiceDocumentAttributeConfigurations(
+      final List<software.amazon.awssdk.services.qbusiness.model.DocumentAttributeConfiguration> documentAttributeConfigurations) {
+
+    if (documentAttributeConfigurations == null) {
+      return null;
+    }
+
+    return documentAttributeConfigurations.stream()
+        .map(documentAttributeConfiguration -> DocumentAttributeConfiguration.builder()
+            .name(documentAttributeConfiguration.name())
+            .search(documentAttributeConfiguration.searchAsString())
+            .type(documentAttributeConfiguration.typeAsString())
+            .build())
+        .collect(Collectors.toList());
+  }
+
+  private static IndexStatistics fromServiceIndexStatistics(
+      final software.amazon.awssdk.services.qbusiness.model.IndexStatistics sdkIndexStatistics) {
+
+    if (sdkIndexStatistics == null) {
+      return null;
+    }
+
+    return IndexStatistics.builder()
+        .textDocumentStatistics(fromServiceTextDocumentStatistics(sdkIndexStatistics.textDocumentStatistics()))
+        .build();
+  }
+
+  private static TextDocumentStatistics fromServiceTextDocumentStatistics(
+      final software.amazon.awssdk.services.qbusiness.model.TextDocumentStatistics sdkTextDocumentStatistics) {
+
+    if (sdkTextDocumentStatistics == null) {
+      return null;
+    }
+
+    return TextDocumentStatistics.builder()
+        .indexedTextBytes(Double.valueOf(sdkTextDocumentStatistics.indexedTextBytes()))
+        .indexedTextDocumentCount(Double.valueOf(sdkTextDocumentStatistics.indexedTextDocumentCount()))
+        .build();
   }
 }

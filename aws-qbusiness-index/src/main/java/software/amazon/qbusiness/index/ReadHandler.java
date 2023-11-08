@@ -1,67 +1,57 @@
 package software.amazon.qbusiness.index;
 
-// TODO: replace all usage of SdkClient with your service client type, e.g; YourServiceAsyncClient
-// import software.amazon.awssdk.services.yourservice.YourServiceAsyncClient;
-
-import software.amazon.awssdk.awscore.AwsResponse;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
-import software.amazon.awssdk.core.SdkClient;
-import software.amazon.cloudformation.exceptions.CfnGeneralServiceException;
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.DescribeIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.DescribeIndexResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
+import static software.amazon.qbusiness.index.Constants.API_GET_INDEX;
+
 public class ReadHandler extends BaseHandlerStd {
-    private Logger logger;
+  private Logger logger;
 
-    protected ProgressEvent<ResourceModel, CallbackContext> handleRequest(
-        final AmazonWebServicesClientProxy proxy,
-        final ResourceHandlerRequest<ResourceModel> request,
-        final CallbackContext callbackContext,
-        final ProxyClient<SdkClient> proxyClient,
-        final Logger logger) {
+  protected ProgressEvent<ResourceModel, CallbackContext> handleRequest(
+      final AmazonWebServicesClientProxy proxy,
+      final ResourceHandlerRequest<ResourceModel> request,
+      final CallbackContext callbackContext,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final Logger logger) {
 
-        this.logger = logger;
+    this.logger = logger;
 
-        // TODO: Adjust Progress Chain according to your implementation
-        // https://github.com/aws-cloudformation/cloudformation-cli-java-plugin/blob/master/src/main/java/software/amazon/cloudformation/proxy/CallChain.java
+    this.logger.log("[StackId: %s, ApplicationId: %s, IndexId: %s] Entering Read Handler"
+        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getIndexId()));
 
-        // STEP 1 [initialize a proxy context]
-        return proxy.initiate("AWS-QBusiness-Index::Read", proxyClient, request.getDesiredResourceState(), callbackContext)
+    return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
+        .then(progress ->
+            proxy.initiate("AWS-QBusiness-Index::Read", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                // Create Get Index request from resource model
+                .translateToServiceRequest(Translator::translateToReadRequest)
+                // Make call to the service
+                .makeServiceCall(this::callGetIndex)
+                .handleError((describeIndexRequest, error, client, model, context) ->
+                    handleError(describeIndexRequest, model, error, context, logger, API_GET_INDEX))
+                .done(serviceResponse -> ProgressEvent.progress(Translator.translateFromReadResponse(serviceResponse), callbackContext))
+        )
+        // Now process listing tags for the resource
+        .then(progress ->
+            proxy.initiate("AWS-QBusiness-Index::ListTags", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                .translateToServiceRequest(model -> Translator.translateToListTagsRequest(request, model))
+                .makeServiceCall(this::callListTags)
+                .handleError((describeIndexRequest, error, client, model, context) ->
+                    handleError(describeIndexRequest, model, error, context, logger, API_GET_INDEX))
+                .done(listTagsResponse -> ProgressEvent.defaultSuccessHandler(
+                        Translator.translateFromReadResponseWithTags(listTagsResponse, progress.getResourceModel())
+                    )
+                )
+        );
+  }
 
-            // STEP 2 [TODO: construct a body of a request]
-            .translateToServiceRequest(Translator::translateToReadRequest)
-
-            // STEP 3 [TODO: make an api call]
-            // Implement client invocation of the read request through the proxyClient, which is already initialised with
-            // caller credentials, correct region and retry settings
-            .makeServiceCall((awsRequest, client) -> {
-                AwsResponse awsResponse = null;
-                try {
-
-                    // TODO: add custom read resource logic
-                    // If describe request does not return ResourceNotFoundException, you must throw ResourceNotFoundException based on
-                    // awsResponse values
-
-                } catch (final AwsServiceException e) { // ResourceNotFoundException
-                    /*
-                    * While the handler contract states that the handler must always return a progress event,
-                    * you may throw any instance of BaseHandlerException, as the wrapper map it to a progress event.
-                    * Each BaseHandlerException maps to a specific error code, and you should map service exceptions as closely as possible
-                    * to more specific error codes
-                    */
-                    throw new CfnGeneralServiceException(ResourceModel.TYPE_NAME, e); // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/commit/2077c92299aeb9a68ae8f4418b5e932b12a8b186#diff-5761e3a9f732dc1ef84103dc4bc93399R56-R63
-                }
-
-                logger.log(String.format("%s has successfully been read.", ResourceModel.TYPE_NAME));
-                return awsResponse;
-            })
-
-            // STEP 4 [TODO: gather all properties of the resource]
-            // Implement client invocation of the read request through the proxyClient, which is already initialised with
-            // caller credentials, correct region and retry settings
-            .done(awsResponse -> ProgressEvent.defaultSuccessHandler(Translator.translateFromReadResponse(awsResponse)));
-    }
+  private DescribeIndexResponse callGetIndex(final DescribeIndexRequest request, final ProxyClient<QBusinessClient> client) {
+    return client.injectCredentialsAndInvokeV2(request, client.client()::describeIndex);
+  }
 }
