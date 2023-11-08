@@ -1,43 +1,38 @@
 package software.amazon.qbusiness.datasource;
 
-import software.amazon.awssdk.awscore.AwsRequest;
-import software.amazon.awssdk.awscore.AwsResponse;
-import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
-import software.amazon.cloudformation.proxy.Logger;
-import software.amazon.cloudformation.proxy.ProgressEvent;
-import software.amazon.cloudformation.proxy.OperationStatus;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import java.util.ArrayList;
 import java.util.List;
 
-public class ListHandler extends BaseHandler<CallbackContext> {
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.ListApplicationsRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListApplicationsResponse;
+import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
+import software.amazon.cloudformation.proxy.Logger;
+import software.amazon.cloudformation.proxy.OperationStatus;
+import software.amazon.cloudformation.proxy.ProgressEvent;
+import software.amazon.cloudformation.proxy.ProxyClient;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
-    @Override
-    public ProgressEvent<ResourceModel, CallbackContext> handleRequest(
-        final AmazonWebServicesClientProxy proxy,
-        final ResourceHandlerRequest<ResourceModel> request,
-        final CallbackContext callbackContext,
-        final Logger logger) {
+public class ListHandler extends BaseHandlerStd {
 
-        final List<ResourceModel> models = new ArrayList<>();
+  @Override
+  public ProgressEvent<ResourceModel, CallbackContext> handleRequest(
+      final AmazonWebServicesClientProxy proxy,
+      final ResourceHandlerRequest<ResourceModel> request,
+      final CallbackContext callbackContext,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final Logger logger) {
 
-        // STEP 1 [TODO: construct a body of a request]
-        final AwsRequest awsRequest = Translator.translateToListRequest(request.getNextToken());
+    final ListApplicationsRequest awsRequest = Translator.translateToListRequest(request.getNextToken());
 
-        // STEP 2 [TODO: make an api call]
-        AwsResponse awsResponse = null; // proxy.injectCredentialsAndInvokeV2(awsRequest, ClientBuilder.getClient()::describeLogGroups);
+    ListApplicationsResponse listApplicationsResponse = proxy.injectCredentialsAndInvokeV2(awsRequest, proxyClient.client()::listApplications);
 
-        // STEP 3 [TODO: get a token for the next page]
-        String nextToken = null;
+    String nextToken = listApplicationsResponse.nextToken();
 
-        // STEP 4 [TODO: construct resource models]
-        // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/master/aws-logs-loggroup/src/main/java/software/amazon/logs/loggroup/ListHandler.java#L19-L21
-
-        return ProgressEvent.<ResourceModel, CallbackContext>builder()
-            .resourceModels(models)
-            .nextToken(nextToken)
-            .status(OperationStatus.SUCCESS)
-            .build();
-    }
+    List<ResourceModel> models = Translator.translateFromListRequest(listApplicationsResponse);
+    return ProgressEvent.<ResourceModel, CallbackContext>builder()
+        .resourceModels(models)
+        .nextToken(nextToken)
+        .status(OperationStatus.SUCCESS)
+        .build();
+  }
 }
