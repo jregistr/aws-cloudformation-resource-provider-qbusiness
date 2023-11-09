@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -101,24 +102,24 @@ public class ReadHandlerTest extends AbstractTestBase {
             .description("This is a description of the index.")
             .name("IndexName")
             .status(IndexStatus.ACTIVE)
-            .indexStatistics(IndexStatistics.builder()
-                .textDocumentStatistics(TextDocumentStatistics.builder()
+            .indexStatistics(software.amazon.awssdk.services.qbusiness.model.IndexStatistics.builder()
+                .textDocumentStatistics(software.amazon.awssdk.services.qbusiness.model.TextDocumentStatistics.builder()
                     .indexedTextBytes(1000L)
                     .indexedTextDocumentCount(1)
                     .build())
                 .build())
-            .documentAttributeConfigurations(List.of(DocumentAttributeConfiguration.builder()
+            .documentAttributeConfigurations(List.of(software.amazon.awssdk.services.qbusiness.model.DocumentAttributeConfiguration.builder()
                 .name("DocumentAttributeName")
-                .search(Status.ENABLED)
-                .type(AttributeType.DATE)
+                .search(Status.ENABLED.toString())
+                .type(AttributeType.DATE.toString())
                 .build()))
-            .capacityUnitConfiguration(StorageCapacityUnitConfiguration.builder()
+            .capacityUnitConfiguration(software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
                 .units(10)
                 .build())
             .build());
     when(proxyClient.client().listTagsForResource(any(ListTagsForResourceRequest.class)))
         .thenReturn(ListTagsForResourceResponse.builder()
-            .tags(List.of(Tag.builder()
+            .tags(List.of(software.amazon.awssdk.services.qbusiness.model.Tag.builder()
                 .key("Category")
                 .value("Chat Stuff")
                 .build()))
@@ -171,7 +172,7 @@ public class ReadHandlerTest extends AbstractTestBase {
             .description("This is a description of the index.")
             .name("IndexName")
             .status(IndexStatus.ACTIVE)
-            .indexStatistics(IndexStatistics.builder().build())
+            .indexStatistics(software.amazon.awssdk.services.qbusiness.model.IndexStatistics.builder().build())
             .build());
 
     // call method under test
@@ -237,18 +238,18 @@ public class ReadHandlerTest extends AbstractTestBase {
             .description("This is a description of the index.")
             .name("IndexName")
             .status(IndexStatus.ACTIVE)
-            .indexStatistics(IndexStatistics.builder()
-                .textDocumentStatistics(TextDocumentStatistics.builder()
+            .indexStatistics(software.amazon.awssdk.services.qbusiness.model.IndexStatistics.builder()
+                .textDocumentStatistics(software.amazon.awssdk.services.qbusiness.model.TextDocumentStatistics.builder()
                     .indexedTextBytes(1000L)
                     .indexedTextDocumentCount(1)
                     .build())
                 .build())
-            .documentAttributeConfigurations(List.of(DocumentAttributeConfiguration.builder()
+            .documentAttributeConfigurations(List.of(software.amazon.awssdk.services.qbusiness.model.DocumentAttributeConfiguration.builder()
                 .name("DocumentAttributeName")
-                .search(Status.ENABLED)
-                .type(AttributeType.DATE)
+                .search(Status.ENABLED.toString())
+                .type(AttributeType.DATE.toString())
                 .build()))
-            .capacityUnitConfiguration(StorageCapacityUnitConfiguration.builder()
+            .capacityUnitConfiguration(software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
                 .units(10)
                 .build())
             .build());

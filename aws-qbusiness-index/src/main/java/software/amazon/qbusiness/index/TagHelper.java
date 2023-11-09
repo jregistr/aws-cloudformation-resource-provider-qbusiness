@@ -162,11 +162,12 @@ public class TagHelper {
    * @param serviceTags List of service tags
    * @return List of model tags
    */
-  public static List<Tag> modelTagsFromServiceTags(
-      List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
+  public static List<software.amazon.qbusiness.index.Tag> modelTagsFromServiceTags(
+      List<Tag> serviceTags
   ) {
     return serviceTags.stream()
-        .map(serviceTag -> new Tag(serviceTag.key(), serviceTag.value()))
+        .map(serviceTag -> new software.amazon.qbusiness.index.Tag(serviceTag.key(), serviceTag.value())
+        )
         .toList();
   }
 
