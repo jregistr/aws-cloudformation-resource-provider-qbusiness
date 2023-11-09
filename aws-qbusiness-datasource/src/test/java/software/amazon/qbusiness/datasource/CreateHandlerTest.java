@@ -31,9 +31,9 @@ import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationResponse;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
@@ -119,8 +119,8 @@ public class CreateHandlerTest extends AbstractTestBase {
     when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
         .tags(List.of())
         .build());
-    when(sdkClient.describeApplication(any(DescribeApplicationRequest.class)))
-        .thenReturn(DescribeApplicationResponse.builder()
+    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
+        .thenReturn(GetApplicationResponse.builder()
             .applicationId(APP_ID)
             .status(ApplicationStatus.ACTIVE)
             .description(createModel.getDescription())
@@ -143,8 +143,8 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(model.getStatus()).isEqualTo(ApplicationStatus.ACTIVE.toString());
 
     verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    verify(sdkClient, times(2)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(2)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
   }
@@ -152,7 +152,7 @@ public class CreateHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequestFromProcessingStateToActive() {
     // set up scenario
-    var describe = DescribeApplicationResponse.builder()
+    var getResponse = GetApplicationResponse.builder()
         .applicationId(APP_ID)
         .description(createModel.getDescription())
         .name(createModel.getName())
@@ -163,10 +163,10 @@ public class CreateHandlerTest extends AbstractTestBase {
         .tags(List.of())
         .build());
 
-    when(sdkClient.describeApplication(any(DescribeApplicationRequest.class)))
+    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
         .thenReturn(
-            describe.toBuilder().status(ApplicationStatus.CREATING).build(),
-            describe.toBuilder().status(ApplicationStatus.ACTIVE).build()
+            getResponse.toBuilder().status(ApplicationStatus.CREATING).build(),
+            getResponse.toBuilder().status(ApplicationStatus.ACTIVE).build()
         );
 
     // call method under test
@@ -178,17 +178,17 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    verify(sdkClient, times(3)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(3)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
   }
 
   @Test
-  public void testItFailsWithErrorMessageWhenDescribeReturnsFailStatus() {
+  public void testItFailsWithErrorMessageWhenGetReturnsFailStatus() {
     // set up
-    when(sdkClient.describeApplication(any(DescribeApplicationRequest.class)))
-        .thenReturn(DescribeApplicationResponse.builder()
+    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
+        .thenReturn(GetApplicationResponse.builder()
             .applicationId(APP_ID)
             .status(ApplicationStatus.FAILED)
             .errorMessage("There was like, a problem.")
@@ -203,7 +203,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     )).isInstanceOf(CfnNotStabilizedException.class);
 
     verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    verify(sdkClient, times(1)).describeApplication(any(DescribeApplicationRequest.class));
+    verify(sdkClient, times(1)).getApplication(any(GetApplicationRequest.class));
   }
 
   private static Stream<Arguments> createApplicationErrorsAndExpectedCodes() {

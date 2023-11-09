@@ -331,20 +331,20 @@
     "create": {
       "permissions": [
         "qbusiness:CreateDataSource",
-        "qbusiness:DescribeDataSource",
+        "qbusiness:GetDataSource",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource"
       ]
     },
     "read": {
       "permissions": [
-        "qbusiness:DescribeDataSource",
+        "qbusiness:GetDataSource",
         "qbusiness:ListTagsForResource"
       ]
     },
     "update": {
       "permissions": [
-        "qbusiness:DescribeDataSource",
+        "qbusiness:GetDataSource",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
@@ -354,7 +354,7 @@
     "delete": {
       "permissions": [
         "qbusiness:DeleteDataSource",
-        "qbusiness:DescribeDataSource"
+        "qbusiness:GetDataSource"
       ]
     },
     "list": {

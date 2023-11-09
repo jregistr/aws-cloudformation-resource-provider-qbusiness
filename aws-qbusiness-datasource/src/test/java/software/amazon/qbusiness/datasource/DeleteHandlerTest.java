@@ -29,9 +29,9 @@ import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
 import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationResponse;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
@@ -101,7 +101,7 @@ public class DeleteHandlerTest extends AbstractTestBase {
   public void handleRequest_SimpleSuccess() {
     // set up test
     when(sdkClient.deleteApplication(any(DeleteApplicationRequest.class))).thenReturn(DeleteApplicationResponse.builder().build());
-    when(sdkClient.describeApplication(any(DescribeApplicationRequest.class))).thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.getApplication(any(GetApplicationRequest.class))).thenThrow(ResourceNotFoundException.builder().build());
 
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
@@ -118,8 +118,8 @@ public class DeleteHandlerTest extends AbstractTestBase {
     verify(sdkClient).deleteApplication(
         argThat((ArgumentMatcher<DeleteApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
-    verify(sdkClient).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
   }
 
@@ -127,15 +127,15 @@ public class DeleteHandlerTest extends AbstractTestBase {
   public void handleMovingFromDeletingToNotFound() {
     // set up test
     when(sdkClient.deleteApplication(any(DeleteApplicationRequest.class))).thenReturn(DeleteApplicationResponse.builder().build());
-    when(sdkClient.describeApplication(any(DescribeApplicationRequest.class)))
+    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
         .thenReturn(
-            DescribeApplicationResponse.builder()
+            GetApplicationResponse.builder()
                 .applicationId(APP_ID)
                 .status(ApplicationStatus.ACTIVE)
                 .build()
         )
         .thenReturn(
-            DescribeApplicationResponse.builder()
+            GetApplicationResponse.builder()
                 .applicationId(APP_ID)
                 .status(ApplicationStatus.DELETING)
                 .build()
@@ -158,8 +158,8 @@ public class DeleteHandlerTest extends AbstractTestBase {
         argThat((ArgumentMatcher<DeleteApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
 
-    verify(sdkClient, times(3)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(3)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
   }
 

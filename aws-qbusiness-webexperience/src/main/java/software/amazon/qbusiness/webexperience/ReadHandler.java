@@ -30,8 +30,8 @@ public class ReadHandler extends BaseHandlerStd {
                 .translateToServiceRequest(Translator::translateToReadRequest)
                 // Make call to the service
                 .makeServiceCall(this::callGetApplication)
-                .handleError((describeApplicationRequest, error, client, model, context) ->
-                    handleError(describeApplicationRequest, model, error, context, logger, API_GET_APPLICATION))
+                .handleError((getApplicationRequest, error, client, model, context) ->
+                    handleError(getApplicationRequest, model, error, context, logger, API_GET_APPLICATION))
                 .done(serviceResponse -> ProgressEvent.progress(Translator.translateFromReadResponse(serviceResponse), callbackContext))
         )
         // Now process listing tags for the resource
@@ -42,8 +42,8 @@ public class ReadHandler extends BaseHandlerStd {
                 )
                 .translateToServiceRequest(model -> Translator.translateToListTagsRequest(request, model))
                 .makeServiceCall(this::callListTags)
-                .handleError((describeApplicationRequest, error, client, model, context) ->
-                    handleError(describeApplicationRequest, model, error, context, logger, API_GET_APPLICATION))
+                .handleError((listTagsRequest, error, client, model, context) ->
+                    handleError(listTagsRequest, model, error, context, logger, API_GET_APPLICATION))
                 .done(listTagsResponse -> ProgressEvent.defaultSuccessHandler(
                         Translator.translateFromReadResponseWithTags(listTagsResponse, progress.getResourceModel())
                     )

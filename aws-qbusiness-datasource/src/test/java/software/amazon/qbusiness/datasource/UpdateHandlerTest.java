@@ -31,8 +31,8 @@ import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
@@ -106,7 +106,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .roleArn("now-better-role")
         .chatConfiguration(ChatConfiguration.builder()
             .responseConfiguration(ResponseConfiguration.builder()
-                .defaultMessage("Come in, take a seat by the Hearth!")
+                .defaultResponse("Come in, take a seat by the Hearth!")
                 .build())
             .build())
         .capacityUnitConfiguration(ChatCapacityUnitConfiguration.builder()
@@ -150,8 +150,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .thenReturn(TagResourceResponse.builder().build());
     when(sdkClient.untagResource(any(UntagResourceRequest.class)))
         .thenReturn(UntagResourceResponse.builder().build());
-    when(sdkClient.describeApplication(any(DescribeApplicationRequest.class)))
-        .thenReturn(DescribeApplicationResponse.builder()
+    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
+        .thenReturn(GetApplicationResponse.builder()
             .applicationId(APP_ID)
             .status(ApplicationStatus.ACTIVE)
             .build());
@@ -185,13 +185,13 @@ public class UpdateHandlerTest extends AbstractTestBase {
     assertThat(updateAppRequest.roleArn()).isEqualTo("now-better-role");
     assertThat(updateAppRequest.chatConfiguration()).isEqualTo(software.amazon.awssdk.services.qbusiness.model.ChatConfiguration.builder()
         .responseConfiguration(software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration.builder()
-            .defaultMessage("Come in, take a seat by the Hearth!")
+            .defaultResponse("Come in, take a seat by the Hearth!")
             .build())
         .build());
     assertThat(updateAppRequest.capacityUnitConfiguration().users()).isEqualTo(100);
 
-    verify(sdkClient, times(2)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(2)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
@@ -243,8 +243,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
-    verify(sdkClient, times(2)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(2)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     verify(tagHelper).shouldUpdateTags(any());
@@ -299,8 +299,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
-    verify(sdkClient, times(2)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(2)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     verify(tagHelper).shouldUpdateTags(any());
@@ -332,8 +332,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress.isSuccess()).isTrue();
     verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
 
-    verify(sdkClient, times(2)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(2)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
@@ -376,8 +376,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
-    verify(sdkClient, times(2)).describeApplication(
-        argThat((ArgumentMatcher<DescribeApplicationRequest>) t -> t.applicationId().equals(APP_ID))
+    verify(sdkClient, times(2)).getApplication(
+        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
     );
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 

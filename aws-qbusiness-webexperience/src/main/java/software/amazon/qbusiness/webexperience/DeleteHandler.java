@@ -75,7 +75,7 @@ public class DeleteHandler extends BaseHandlerStd {
   ) {
     try {
       getApplication(model, proxyClient, logger);
-      // we got a result from Describe, therefore deletion is still processing.
+      // we got a result from Get Application, therefore deletion is still processing.
       return false;
     } catch (ResourceNotFoundException e) {
       logger.log("[Info] Deletion of %s with id: %s has stabilized.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));

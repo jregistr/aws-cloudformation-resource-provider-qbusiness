@@ -1,8 +1,8 @@
 package software.amazon.qbusiness.index;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.DescribeIndexRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeIndexResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -33,8 +33,8 @@ public class ReadHandler extends BaseHandlerStd {
                 .translateToServiceRequest(Translator::translateToReadRequest)
                 // Make call to the service
                 .makeServiceCall(this::callGetIndex)
-                .handleError((describeIndexRequest, error, client, model, context) ->
-                    handleError(describeIndexRequest, model, error, context, logger, API_GET_INDEX))
+                .handleError((getIndexRequest, error, client, model, context) ->
+                    handleError(getIndexRequest, model, error, context, logger, API_GET_INDEX))
                 .done(serviceResponse -> ProgressEvent.progress(Translator.translateFromReadResponse(serviceResponse), callbackContext))
         )
         // Now process listing tags for the resource
@@ -42,8 +42,8 @@ public class ReadHandler extends BaseHandlerStd {
             proxy.initiate("AWS-QBusiness-Index::ListTags", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
                 .translateToServiceRequest(model -> Translator.translateToListTagsRequest(request, model))
                 .makeServiceCall(this::callListTags)
-                .handleError((describeIndexRequest, error, client, model, context) ->
-                    handleError(describeIndexRequest, model, error, context, logger, API_GET_INDEX))
+                .handleError((listTagsRequest, error, client, model, context) ->
+                    handleError(listTagsRequest, model, error, context, logger, API_GET_INDEX))
                 .done(listTagsResponse -> ProgressEvent.defaultSuccessHandler(
                         Translator.translateFromReadResponseWithTags(listTagsResponse, progress.getResourceModel())
                     )
@@ -51,7 +51,7 @@ public class ReadHandler extends BaseHandlerStd {
         );
   }
 
-  private DescribeIndexResponse callGetIndex(final DescribeIndexRequest request, final ProxyClient<QBusinessClient> client) {
-    return client.injectCredentialsAndInvokeV2(request, client.client()::describeIndex);
+  private GetIndexResponse callGetIndex(final GetIndexRequest request, final ProxyClient<QBusinessClient> client) {
+    return client.injectCredentialsAndInvokeV2(request, client.client()::getIndex);
   }
 }

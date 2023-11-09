@@ -32,7 +32,7 @@ Resources:
                 Action:
                 - "qbusiness:CreateIndex"
                 - "qbusiness:DeleteIndex"
-                - "qbusiness:DescribeIndex"
+                - "qbusiness:GetIndex"
                 - "qbusiness:ListIndices"
                 - "qbusiness:ListTagsForResource"
                 - "qbusiness:TagResource"

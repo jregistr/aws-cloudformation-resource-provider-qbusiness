@@ -7,9 +7,9 @@ import org.json.JSONObject;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceAlreadyExistException;
@@ -60,18 +60,18 @@ public abstract class BaseHandlerStd extends BaseHandler<CallbackContext> {
     return client.injectCredentialsAndInvokeV2(request, client.client()::listTagsForResource);
   }
 
-  protected DescribeApplicationResponse callGetApplication(DescribeApplicationRequest request, ProxyClient<QBusinessClient> client) {
-    return client.injectCredentialsAndInvokeV2(request, client.client()::describeApplication);
+  protected GetApplicationResponse callGetApplication(GetApplicationRequest request, ProxyClient<QBusinessClient> client) {
+    return client.injectCredentialsAndInvokeV2(request, client.client()::getApplication);
   }
 
-  protected DescribeApplicationResponse getApplication(ResourceModel model, ProxyClient<QBusinessClient> proxyClient, Logger logger) {
+  protected GetApplicationResponse getApplication(ResourceModel model, ProxyClient<QBusinessClient> proxyClient, Logger logger) {
     if (StringUtils.isBlank(model.getApplicationId())) {
       logger.log("[ERROR] Unexpected call to get application with a null or empty application ID: %s".formatted(model.getApplicationId()));
       throw new NullPointerException();
     }
 
-    DescribeApplicationRequest getApplicationRequest = Translator.translateToReadRequest(model);
-    return proxyClient.injectCredentialsAndInvokeV2(getApplicationRequest, proxyClient.client()::describeApplication);
+    GetApplicationRequest getApplicationRequest = Translator.translateToReadRequest(model);
+    return proxyClient.injectCredentialsAndInvokeV2(getApplicationRequest, proxyClient.client()::getApplication);
   }
 
   protected ProgressEvent<ResourceModel, CallbackContext> handleError(

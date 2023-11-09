@@ -9,10 +9,11 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import software.amazon.awssdk.services.qbusiness.model.AppliedChatConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.AppliedChatContextFilesControlConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListApplicationsRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListApplicationsResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
@@ -47,6 +48,7 @@ public class Translator {
         .capacityUnitConfiguration(toServiceChatCapacityConfiguration(model.getCapacityUnitConfiguration()))
         .chatConfiguration(toServiceChatConfiguration(model.getChatConfiguration()))
         .serverSideEncryptionConfiguration(toServiceServerSideEncryptionConfig(model.getServerSideEncryptionConfiguration()))
+        .chatContextFilesControlConfiguration(toServiceChatContextFilesControlConf(model.getChatContextFilesControlConfiguration()))
         .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
         .build();
   }
@@ -55,10 +57,10 @@ public class Translator {
    * Request to read a resource
    *
    * @param model resource model
-   * @return awsRequest the aws service request to describe a resource
+   * @return awsRequest the aws service request to read a resource
    */
-  static DescribeApplicationRequest translateToReadRequest(final ResourceModel model) {
-    return DescribeApplicationRequest.builder()
+  static GetApplicationRequest translateToReadRequest(final ResourceModel model) {
+    return GetApplicationRequest.builder()
         .applicationId(model.getApplicationId())
         .build();
   }
@@ -74,10 +76,10 @@ public class Translator {
   /**
    * Translates resource object from sdk into a resource model
    *
-   * @param awsResponse the aws service describe resource response
+   * @param awsResponse the aws service get resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final DescribeApplicationResponse awsResponse) {
+  static ResourceModel translateFromReadResponse(final GetApplicationResponse awsResponse) {
     return ResourceModel.builder()
         .name(awsResponse.name())
         .applicationId(awsResponse.applicationId())
@@ -89,6 +91,7 @@ public class Translator {
         .capacityUnitConfiguration(fromServiceChatCapacityConfiguration(awsResponse.capacityUnitConfiguration()))
         .chatConfiguration(fromServiceChatConfiguration(awsResponse.chatConfiguration()))
         .serverSideEncryptionConfiguration(fromServiceServerSideEncryptionConfig(awsResponse.serverSideEncryptionConfiguration()))
+        .chatContextFilesControlConfiguration(fromServiceChatContextFilesControlConf(awsResponse.chatContextFilesControlConfiguration()))
         .build();
   }
 
@@ -112,9 +115,7 @@ public class Translator {
     return ChatConfiguration.builder()
         .responseConfiguration(ResponseConfiguration.builder()
             .blockedPhrases(serviceResponseConfig.blockedPhrases())
-            .blockedTopicsPrompt(serviceResponseConfig.blockedTopicsPrompt())
-            .defaultMessage(serviceResponseConfig.defaultMessage())
-            .nonRetrievalResponseControlStatus(serviceResponseConfig.nonRetrievalResponseControlStatusAsString())
+            .defaultResponse(serviceResponseConfig.defaultResponse())
             .retrievalResponseControlStatus(serviceResponseConfig.retrievalResponseControlStatusAsString())
             .build())
         .build();
@@ -132,9 +133,7 @@ public class Translator {
     return software.amazon.awssdk.services.qbusiness.model.ChatConfiguration.builder()
         .responseConfiguration(software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration.builder()
             .blockedPhrases(modelResponseConfig.getBlockedPhrases())
-            .blockedTopicsPrompt(modelResponseConfig.getBlockedTopicsPrompt())
-            .defaultMessage(modelResponseConfig.getDefaultMessage())
-            .nonRetrievalResponseControlStatus(modelResponseConfig.getNonRetrievalResponseControlStatus())
+            .defaultResponse(modelResponseConfig.getDefaultResponse())
             .retrievalResponseControlStatus(modelResponseConfig.getRetrievalResponseControlStatus())
             .build())
         .build();
@@ -161,6 +160,29 @@ public class Translator {
 
     return software.amazon.awssdk.services.qbusiness.model.ServerSideEncryptionConfiguration.builder()
         .kmsKeyId(modelServerSideConfig.getKmsKeyId())
+        .build();
+  }
+
+  static ChatContextFilesControlConfiguration fromServiceChatContextFilesControlConf(
+      AppliedChatContextFilesControlConfiguration serviceAppliedChatContextConf
+  ) {
+    if (serviceAppliedChatContextConf == null) {
+      return null;
+    }
+
+    return ChatContextFilesControlConfiguration.builder()
+        .chatContextFilesControlMode(serviceAppliedChatContextConf.chatContextFilesControlModeAsString())
+        .build();
+  }
+
+  static software.amazon.awssdk.services.qbusiness.model.ChatContextFilesControlConfiguration toServiceChatContextFilesControlConf(
+      ChatContextFilesControlConfiguration modelChatContextConf
+  ) {
+    if (modelChatContextConf == null) {
+      return null;
+    }
+    return software.amazon.awssdk.services.qbusiness.model.ChatContextFilesControlConfiguration.builder()
+        .chatContextFilesControlMode(modelChatContextConf.getChatContextFilesControlMode())
         .build();
   }
 
@@ -229,6 +251,7 @@ public class Translator {
         .roleArn(model.getRoleArn())
         .chatConfiguration(toServiceChatConfiguration(model.getChatConfiguration()))
         .capacityUnitConfiguration(toServiceChatCapacityConfiguration(model.getCapacityUnitConfiguration()))
+        .chatContextFilesControlConfiguration(toServiceChatContextFilesControlConf(model.getChatContextFilesControlConfiguration()))
         .build();
   }
 
@@ -247,7 +270,7 @@ public class Translator {
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
    *
-   * @param serviceResponse the aws service describe resource response
+   * @param serviceResponse the aws service get resource response
    * @return list of resource models
    */
   static List<ResourceModel> translateFromListRequest(final ListApplicationsResponse serviceResponse) {

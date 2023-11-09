@@ -3,8 +3,8 @@ package software.amazon.qbusiness.index;
 import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
-import software.amazon.awssdk.services.qbusiness.model.DescribeIndexRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeIndexResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
@@ -45,8 +45,8 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
-  static DescribeIndexRequest translateToReadRequest(final ResourceModel model) {
-    return DescribeIndexRequest.builder()
+  static GetIndexRequest translateToReadRequest(final ResourceModel model) {
+    return GetIndexRequest.builder()
         .applicationId(model.getApplicationId())
         .indexId(model.getIndexId())
         .build();
@@ -73,7 +73,7 @@ public class Translator {
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final DescribeIndexResponse awsResponse) {
+  static ResourceModel translateFromReadResponse(final GetIndexResponse awsResponse) {
     return ResourceModel.builder()
         .name(awsResponse.name())
         .applicationId(awsResponse.applicationId())

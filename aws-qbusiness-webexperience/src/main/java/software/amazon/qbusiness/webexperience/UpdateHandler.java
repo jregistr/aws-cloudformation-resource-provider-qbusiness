@@ -10,7 +10,7 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
@@ -130,7 +130,7 @@ public class UpdateHandler extends BaseHandlerStd {
       ProxyClient<QBusinessClient> proxyClient,
       ResourceModel model
   ) {
-    DescribeApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
+    GetApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
     var status = getAppResponse.status();
     var hasStabilized = ApplicationStatus.ACTIVE.equals(status);
     logger.log("[INFO] %s with ID: %s has stabilized.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));

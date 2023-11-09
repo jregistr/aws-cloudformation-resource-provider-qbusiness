@@ -1,5 +1,19 @@
 package software.amazon.qbusiness.index;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,12 +23,13 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.AttributeType;
-import software.amazon.awssdk.services.qbusiness.model.DescribeIndexRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeIndexResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
 import software.amazon.awssdk.services.qbusiness.model.IndexStatus;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
@@ -29,20 +44,6 @@ import software.amazon.cloudformation.proxy.OperationStatus;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class ReadHandlerTest extends AbstractTestBase {
@@ -93,8 +94,8 @@ public class ReadHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequest_SimpleSuccess() {
     // set up test scenario
-    when(proxyClient.client().describeIndex(any(DescribeIndexRequest.class)))
-        .thenReturn(DescribeIndexResponse.builder()
+    when(proxyClient.client().getIndex(any(GetIndexRequest.class)))
+        .thenReturn(GetIndexResponse.builder()
             .applicationId(APP_ID)
             .indexId(INDEX_ID)
             .createdAt(Instant.ofEpochMilli(1697824935000L))
@@ -131,7 +132,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     );
 
     // verify result
-    verify(sdkClient).describeIndex(any(DescribeIndexRequest.class));
+    verify(sdkClient).getIndex(any(GetIndexRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
     assertThat(responseProgress).isNotNull();
@@ -163,8 +164,8 @@ public class ReadHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequest_SimpleSuccess_withMissingProperties() {
     // set up test scenario
-    when(proxyClient.client().describeIndex(any(DescribeIndexRequest.class)))
-        .thenReturn(DescribeIndexResponse.builder()
+    when(proxyClient.client().getIndex(any(GetIndexRequest.class)))
+        .thenReturn(GetIndexResponse.builder()
             .applicationId(APP_ID)
             .indexId(INDEX_ID)
             .createdAt(Instant.ofEpochMilli(1697824935000L))
@@ -181,7 +182,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     );
 
     // verify result
-    verify(sdkClient).describeIndex(any(DescribeIndexRequest.class));
+    verify(sdkClient).getIndex(any(GetIndexRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     assertThat(responseProgress).isNotNull();
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.SUCCESS);
@@ -208,7 +209,7 @@ public class ReadHandlerTest extends AbstractTestBase {
   @ParameterizedTest
   @MethodSource("serviceErrorAndExpectedCfnCode")
   public void testThatItReturnsExpectedErrorCode(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
-    when(proxyClient.client().describeIndex(any(DescribeIndexRequest.class)))
+    when(proxyClient.client().getIndex(any(GetIndexRequest.class)))
         .thenThrow(serviceError);
 
     // call method under test
@@ -218,7 +219,7 @@ public class ReadHandlerTest extends AbstractTestBase {
 
     // verify
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).describeIndex(any(DescribeIndexRequest.class));
+    verify(sdkClient).getIndex(any(GetIndexRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();
   }
@@ -229,8 +230,8 @@ public class ReadHandlerTest extends AbstractTestBase {
       QBusinessException serviceError,
       HandlerErrorCode cfnErrorCode) {
     // set up test scenario
-    when(proxyClient.client().describeIndex(any(DescribeIndexRequest.class)))
-        .thenReturn(DescribeIndexResponse.builder()
+    when(proxyClient.client().getIndex(any(GetIndexRequest.class)))
+        .thenReturn(GetIndexResponse.builder()
             .applicationId(APP_ID)
             .indexId(INDEX_ID)
             .createdAt(Instant.ofEpochMilli(1697824935000L))
@@ -264,7 +265,7 @@ public class ReadHandlerTest extends AbstractTestBase {
 
     // verify
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).describeIndex(any(DescribeIndexRequest.class));
+    verify(sdkClient).getIndex(any(GetIndexRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();
   }

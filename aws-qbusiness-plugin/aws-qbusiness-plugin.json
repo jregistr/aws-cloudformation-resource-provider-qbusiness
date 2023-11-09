@@ -2,6 +2,80 @@
   "typeName": "AWS::QBusiness::Plugin",
   "description": "Definition of AWS::QBusiness::Plugin Resource Type",
   "definitions": {
+    "BasicAuthConfiguration": {
+      "type": "object",
+      "properties": {
+        "SecretArn": {
+          "type": "string",
+          "maxLength": 1284,
+          "minLength": 0,
+          "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        },
+        "RoleArn": {
+          "type": "string",
+          "maxLength": 1284,
+          "minLength": 0,
+          "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        }
+      },
+      "required": [
+        "RoleArn",
+        "SecretArn"
+      ],
+      "additionalProperties": false
+    },
+    "OAuth2ClientCredentialConfiguration": {
+      "type": "object",
+      "properties": {
+        "SecretArn": {
+          "type": "string",
+          "maxLength": 1284,
+          "minLength": 0,
+          "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        },
+        "RoleArn": {
+          "type": "string",
+          "maxLength": 1284,
+          "minLength": 0,
+          "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
+        }
+      },
+      "required": [
+        "RoleArn",
+        "SecretArn"
+      ],
+      "additionalProperties": false
+    },
+    "PluginAuthConfiguration": {
+      "oneOf": [
+        {
+          "type": "object",
+          "title": "BasicAuthConfiguration",
+          "properties": {
+            "BasicAuthConfiguration": {
+              "$ref": "#/definitions/BasicAuthConfiguration"
+            }
+          },
+          "required": [
+            "BasicAuthConfiguration"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "title": "OAuth2ClientCredentialConfiguration",
+          "properties": {
+            "OAuth2ClientCredentialConfiguration": {
+              "$ref": "#/definitions/OAuth2ClientCredentialConfiguration"
+            }
+          },
+          "required": [
+            "OAuth2ClientCredentialConfiguration"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
     "PluginState": {
       "type": "string",
       "enum": [
@@ -46,6 +120,9 @@
       "minLength": 36,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
     },
+    "AuthConfiguration": {
+      "$ref": "#/definitions/PluginAuthConfiguration"
+    },
     "CreatedAt": {
       "type": "string",
       "format": "date-time"
@@ -72,18 +149,6 @@
       "minLength": 36,
       "pattern": "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"
     },
-    "RoleArn": {
-      "type": "string",
-      "maxLength": 1284,
-      "minLength": 0,
-      "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
-    },
-    "SecretArn": {
-      "type": "string",
-      "maxLength": 1284,
-      "minLength": 0,
-      "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
-    },
     "ServerUrl": {
       "type": "string",
       "maxLength": 2048,
@@ -106,6 +171,7 @@
     }
   },
   "required": [
+    "AuthConfiguration",
     "DisplayName",
     "ServerUrl",
     "Type"

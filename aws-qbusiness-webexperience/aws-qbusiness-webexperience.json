@@ -167,20 +167,20 @@
     "create": {
       "permissions": [
         "qbusiness:CreateWebExperience",
-        "qbusiness:DescribeWebExperience",
+        "qbusiness:GetWebExperience",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource"
       ]
     },
     "read": {
       "permissions": [
-        "qbusiness:DescribeWebExperience",
+        "qbusiness:GetWebExperience",
         "qbusiness:ListTagsForResource"
       ]
     },
     "update": {
       "permissions": [
-        "qbusiness:DescribeWebExperience",
+        "qbusiness:GetWebExperience",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
@@ -190,7 +190,7 @@
     "delete": {
       "permissions": [
         "qbusiness:DeleteWebExperience",
-        "qbusiness:DescribeWebExperience"
+        "qbusiness:GetWebExperience"
       ]
     },
     "list": {

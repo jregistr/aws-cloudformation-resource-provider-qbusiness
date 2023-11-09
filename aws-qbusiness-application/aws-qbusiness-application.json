@@ -31,19 +31,30 @@
       },
       "additionalProperties": false
     },
+    "ChatContextFilesControlConfiguration": {
+      "type": "object",
+      "properties": {
+        "ChatContextFilesControlMode": {
+          "$ref": "#/definitions/ChatContextFilesControlMode"
+        }
+      },
+      "required": [
+        "ChatContextFilesControlMode"
+      ],
+      "additionalProperties": false
+    },
+    "ChatContextFilesControlMode": {
+      "type": "string",
+      "enum": [
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
     "ResponseConfiguration": {
       "type": "object",
       "properties": {
         "RetrievalResponseControlStatus": {
           "$ref": "#/definitions/ResponseControlStatus"
-        },
-        "NonRetrievalResponseControlStatus": {
-          "$ref": "#/definitions/ResponseControlStatus"
-        },
-        "BlockedTopicsPrompt": {
-          "type": "string",
-          "maxLength": 350,
-          "minLength": 1
         },
         "BlockedPhrases": {
           "type": "array",
@@ -56,14 +67,14 @@
           "maxItems": 20,
           "minItems": 0
         },
-        "DefaultMessage": {
+        "DefaultResponse": {
           "type": "string",
-          "maxLength": 350,
-          "minLength": 1
+          "maxLength": 1000,
+          "minLength": 0,
+          "pattern": "^\\P{C}*$"
         }
       },
       "required": [
-        "NonRetrievalResponseControlStatus",
         "RetrievalResponseControlStatus"
       ],
       "additionalProperties": false
@@ -119,6 +130,9 @@
     },
     "ChatConfiguration": {
       "$ref": "#/definitions/ChatConfiguration"
+    },
+    "ChatContextFilesControlConfiguration": {
+      "$ref": "#/definitions/ChatContextFilesControlConfiguration"
     },
     "CreatedAt": {
       "type": "string",
@@ -181,20 +195,20 @@
     "create": {
       "permissions": [
         "qbusiness:CreateApplication",
-        "qbusiness:DescribeApplication",
+        "qbusiness:GetApplication",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource"
       ]
     },
     "read": {
       "permissions": [
-        "qbusiness:DescribeApplication",
+        "qbusiness:GetApplication",
         "qbusiness:ListTagsForResource"
       ]
     },
     "update": {
       "permissions": [
-        "qbusiness:DescribeApplication",
+        "qbusiness:GetApplication",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
@@ -204,7 +218,7 @@
     "delete": {
       "permissions": [
         "qbusiness:DeleteApplication",
-        "qbusiness:DescribeApplication"
+        "qbusiness:GetApplication"
       ]
     },
     "list": {

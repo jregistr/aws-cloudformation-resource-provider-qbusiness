@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.datasource;
+package software.amazon.qbusiness.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,9 +28,9 @@ import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
 import software.amazon.awssdk.services.qbusiness.model.AppliedChatConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.ChatCapacityUnitConfiguration;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
@@ -100,8 +100,8 @@ public class ReadHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequest_SimpleSuccess() {
     // set up test scenario
-    when(proxyClient.client().describeApplication(any(DescribeApplicationRequest.class)))
-        .thenReturn(DescribeApplicationResponse.builder()
+    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
+        .thenReturn(GetApplicationResponse.builder()
             .applicationId(APP_ID)
             .roleArn("role1")
             .createdAt(Instant.ofEpochMilli(1697824935000L))
@@ -115,10 +115,8 @@ public class ReadHandlerTest extends AbstractTestBase {
             .chatConfiguration(AppliedChatConfiguration.builder()
                 .responseConfiguration(ResponseConfiguration.builder()
                     .blockedPhrases("Guaranteed returns")
-                    .blockedTopicsPrompt("What is nifty?")
-                    .defaultMessage("Welcome! Take a seat by the hearth.")
-                    .nonRetrievalResponseControlStatus(ResponseControlStatus.ENABLED)
                     .retrievalResponseControlStatus(ResponseControlStatus.ENABLED)
+                    .defaultResponse("Defaulted Response")
                     .build())
                 .build())
             .serverSideEncryptionConfiguration(ServerSideEncryptionConfiguration.builder()
@@ -139,7 +137,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     );
 
     // verify result
-    verify(sdkClient).describeApplication(any(DescribeApplicationRequest.class));
+    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
     assertThat(responseProgress).isNotNull();
@@ -159,10 +157,8 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(resultModel.getChatConfiguration()).isEqualTo(ChatConfiguration.builder()
         .responseConfiguration(software.amazon.qbusiness.application.ResponseConfiguration.builder()
             .blockedPhrases(List.of("Guaranteed returns"))
-            .blockedTopicsPrompt("What is nifty?")
-            .defaultMessage("Welcome! Take a seat by the hearth.")
-            .nonRetrievalResponseControlStatus("ENABLED")
             .retrievalResponseControlStatus("ENABLED")
+            .defaultResponse("Defaulted Response")
             .build())
         .build());
     assertThat(resultModel.getServerSideEncryptionConfiguration().getKmsKeyId()).isEqualTo("keyblade");
@@ -176,8 +172,8 @@ public class ReadHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequest_SimpleSuccess_withMissingProperties() {
     // set up test scenario
-    when(proxyClient.client().describeApplication(any(DescribeApplicationRequest.class)))
-        .thenReturn(DescribeApplicationResponse.builder()
+    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
+        .thenReturn(GetApplicationResponse.builder()
             .applicationId(APP_ID)
             .roleArn("role1")
             .createdAt(Instant.ofEpochMilli(1697824935000L))
@@ -195,7 +191,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     );
 
     // verify result
-    verify(sdkClient).describeApplication(any(DescribeApplicationRequest.class));
+    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     assertThat(responseProgress).isNotNull();
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.SUCCESS);
@@ -222,7 +218,7 @@ public class ReadHandlerTest extends AbstractTestBase {
   @ParameterizedTest
   @MethodSource("serviceErrorAndExpectedCfnCode")
   public void testThatItReturnsExpectedErrorCode(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
-    when(proxyClient.client().describeApplication(any(DescribeApplicationRequest.class)))
+    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
         .thenThrow(serviceError);
 
     // call method under test
@@ -232,7 +228,7 @@ public class ReadHandlerTest extends AbstractTestBase {
 
     // verify
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).describeApplication(any(DescribeApplicationRequest.class));
+    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();
   }
@@ -241,8 +237,8 @@ public class ReadHandlerTest extends AbstractTestBase {
   @MethodSource("serviceErrorAndExpectedCfnCode")
   public void testThatItReturnsExpectedErrorCodeWhenListTagsForResourceFails(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
     // set up test scenario
-    when(proxyClient.client().describeApplication(any(DescribeApplicationRequest.class)))
-        .thenReturn(DescribeApplicationResponse.builder()
+    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
+        .thenReturn(GetApplicationResponse.builder()
             .applicationId(APP_ID)
             .roleArn("role1")
             .createdAt(Instant.ofEpochMilli(1697824935000L))
@@ -262,7 +258,7 @@ public class ReadHandlerTest extends AbstractTestBase {
 
     // verify
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).describeApplication(any(DescribeApplicationRequest.class));
+    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();

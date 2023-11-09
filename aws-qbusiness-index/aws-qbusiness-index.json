@@ -179,20 +179,20 @@
     "create": {
       "permissions": [
         "qbusiness:CreateIndex",
-        "qbusiness:DescribeIndex",
+        "qbusiness:GetIndex",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource"
       ]
     },
     "read": {
       "permissions": [
-        "qbusiness:DescribeIndex",
+        "qbusiness:GetIndex",
         "qbusiness:ListTagsForResource"
       ]
     },
     "update": {
       "permissions": [
-        "qbusiness:DescribeIndex",
+        "qbusiness:GetIndex",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
@@ -202,7 +202,7 @@
     "delete": {
       "permissions": [
         "qbusiness:DeleteIndex",
-        "qbusiness:DescribeIndex"
+        "qbusiness:GetIndex"
       ]
     },
     "list": {

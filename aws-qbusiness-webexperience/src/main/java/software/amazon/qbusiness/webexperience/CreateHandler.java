@@ -8,7 +8,7 @@ import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationResponse;
-import software.amazon.awssdk.services.qbusiness.model.DescribeApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.cloudformation.exceptions.CfnNotStabilizedException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
@@ -67,7 +67,7 @@ public class CreateHandler extends BaseHandlerStd {
       ResourceModel model,
       Logger logger
   ) {
-    DescribeApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
+    GetApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
 
     var status = getAppResponse.statusAsString();
 

@@ -206,18 +206,20 @@
     "create": {
       "permissions": [
         "qbusiness:AddRetriever",
+        "qbusiness:GetRetriever",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource"
       ]
     },
     "read": {
       "permissions": [
-        "qbusiness:DescribeRetriever",
+        "qbusiness:GetRetriever",
         "qbusiness:ListTagsForResource"
       ]
     },
     "update": {
       "permissions": [
+        "qbusiness:GetRetriever",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
@@ -227,7 +229,7 @@
     "delete": {
       "permissions": [
         "qbusiness:DeleteRetriever",
-        "qbusiness:DescribeRetriever"
+        "qbusiness:GetRetriever"
       ]
     },
     "list": {

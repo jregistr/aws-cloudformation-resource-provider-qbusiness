@@ -21,7 +21,7 @@ Resources:
                   Ref: AWS::AccountId
               StringLike:
                 aws:SourceArn:
-                  Fn::Sub: arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/resource/AWS-QBusiness-Retriever/*
+                  Fn::Sub: arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:type/resource/AWS-QBusiness-DataSource/*
       Path: "/"
       Policies:
         - PolicyName: ResourceTypePolicy
@@ -32,7 +32,7 @@ Resources:
                 Action:
                 - "qbusiness:CreateDataSource"
                 - "qbusiness:DeleteDataSource"
-                - "qbusiness:DescribeDataSource"
+                - "qbusiness:GetDataSource"
                 - "qbusiness:ListDataSources"
                 - "qbusiness:ListTagsForResource"
                 - "qbusiness:TagResource"
