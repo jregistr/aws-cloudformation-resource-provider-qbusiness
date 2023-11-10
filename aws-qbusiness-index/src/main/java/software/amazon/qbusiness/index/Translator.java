@@ -3,8 +3,11 @@ package software.amazon.qbusiness.index;
 import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreateIndexRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListIndicesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListIndicesResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
@@ -32,11 +35,15 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest translateToCreateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static CreateIndexRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
+    return CreateIndexRequest.builder()
+        .clientToken(idempotentToken)
+        .name(model.getName())
+        .applicationId(model.getApplicationId())
+        .description(model.getDescription())
+        .capacityUnitConfiguration(toServiceCapacityUnitConfiguration(model.getCapacityUnitConfiguration()))
+        .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
+        .build();
   }
 
   /**
@@ -56,7 +63,7 @@ public class Translator {
    * Request to list tags for a resource
    *
    * @param request resource handler request for the resource model
-   * @param model resource model
+   * @param model   resource model
    * @return awsRequest the aws service request to list tags for a resource
    */
   static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
@@ -92,7 +99,7 @@ public class Translator {
    * Request to add tags to resource model
    *
    * @param listTagsResponse response from list tags
-   * @param model resource model
+   * @param model            resource model
    * @return model with tags added if they exist
    */
   static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
@@ -146,14 +153,36 @@ public class Translator {
   /**
    * Request to list resources
    *
-   * @param nextToken token passed to the aws service list resources request
+   * @param nextToken     token passed to the aws service list resources request
+   * @param model         resource model
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static AwsRequest translateToListRequest(final String nextToken) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L26-L31
-    return awsRequest;
+  static ListIndicesRequest translateToListRequest(final String nextToken, final ResourceModel model) {
+    return ListIndicesRequest.builder()
+        .nextToken(nextToken)
+        .applicationId(model.getApplicationId())
+        .build();
+  }
+
+  /**
+   * Translates resource objects from sdk into a resource model (primary identifier only)
+   *
+   * @param serviceResponse the aws service get resource response
+   * @param applicationId of the list of indices
+   * @return list of resource models
+   */
+  static List<ResourceModel> translateFromListRequest(final ListIndicesResponse serviceResponse, final String applicationId) {
+    return serviceResponse.items()
+        .stream()
+        .map(summary -> ResourceModel.builder()
+            .indexId(summary.indexId())
+            .applicationId(applicationId)
+            .createdAt(summary.createdAt().toString())
+            .updatedAt(summary.updatedAt().toString())
+            .name(summary.name())
+            .status(summary.statusAsString())
+            .build())
+        .toList();
   }
 
   /**
@@ -253,6 +282,17 @@ public class Translator {
     return TextDocumentStatistics.builder()
         .indexedTextBytes(Double.valueOf(sdkTextDocumentStatistics.indexedTextBytes()))
         .indexedTextDocumentCount(Double.valueOf(sdkTextDocumentStatistics.indexedTextDocumentCount()))
+        .build();
+  }
+
+  private static software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration toServiceCapacityUnitConfiguration(
+      final StorageCapacityUnitConfiguration storageCapacityUnitConfiguration) {
+    if (storageCapacityUnitConfiguration == null || storageCapacityUnitConfiguration.getUnits() == null) {
+      return null;
+    }
+
+    return software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
+        .units(storageCapacityUnitConfiguration.getUnits().intValue())
         .build();
   }
 }

@@ -67,6 +67,25 @@ public class TagHelper {
   }
 
   /**
+   * Converts model tags to a list of Tag objects.
+   *
+   * @param modelTags Collection of model tags
+   * @return List of Tag objects
+   */
+  public static List<Tag> serviceTagsFromCfnTags(
+      final Collection<software.amazon.qbusiness.index.Tag> modelTags) {
+    if (modelTags == null) {
+      return null;
+    }
+    return modelTags.stream()
+        .map(tag -> Tag.builder()
+            .key(tag.getKey())
+            .value(tag.getValue())
+            .build()
+        ).toList();
+  }
+
+  /**
    * shouldUpdateTags
    * Determines whether user defined tags have been changed during update.
    */

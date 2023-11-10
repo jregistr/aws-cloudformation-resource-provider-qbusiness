@@ -23,7 +23,7 @@ public class ReadHandler extends BaseHandlerStd {
 
     this.logger = logger;
 
-    this.logger.log("[StackId: %s, ApplicationId: %s, IndexId: %s] Entering Read Handler"
+    this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, IndexId: %s] Entering Read Handler"
         .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getIndexId()));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)

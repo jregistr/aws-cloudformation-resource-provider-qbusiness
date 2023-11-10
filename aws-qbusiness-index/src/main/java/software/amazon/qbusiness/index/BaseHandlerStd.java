@@ -5,6 +5,8 @@ import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceAlreadyExistException;
@@ -12,6 +14,7 @@ import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException
 import software.amazon.awssdk.services.qbusiness.model.ServiceQuotaExceededException;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
+import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.cloudformation.exceptions.BaseHandlerException;
 import software.amazon.cloudformation.exceptions.CfnAccessDeniedException;
 import software.amazon.cloudformation.exceptions.CfnAlreadyExistsException;
@@ -54,6 +57,17 @@ public abstract class BaseHandlerStd extends BaseHandler<CallbackContext> {
 
   protected ListTagsForResourceResponse callListTags(ListTagsForResourceRequest request, ProxyClient<QBusinessClient> client) {
     return client.injectCredentialsAndInvokeV2(request, client.client()::listTagsForResource);
+  }
+
+  protected GetIndexResponse getIndex(ResourceModel model, ProxyClient<QBusinessClient> proxyClient, Logger logger) {
+    if (StringUtils.isBlank(model.getApplicationId()) || StringUtils.isBlank(model.getIndexId())) {
+      logger.log("[ERROR] Unexpected call to get index with a null or empty application ID %s or index ID: %s"
+          .formatted(model.getApplicationId(), model.getIndexId()));
+      throw new NullPointerException();
+    }
+
+    GetIndexRequest getIndexRequest = Translator.translateToReadRequest(model);
+    return proxyClient.injectCredentialsAndInvokeV2(getIndexRequest, proxyClient.client()::getIndex);
   }
 
   protected ProgressEvent<ResourceModel, CallbackContext> handleError(
