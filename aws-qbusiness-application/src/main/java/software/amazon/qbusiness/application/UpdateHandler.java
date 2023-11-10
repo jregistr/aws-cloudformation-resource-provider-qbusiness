@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.retriever;
 
 // TODO: replace all usage of SdkClient with your service client type, e.g; YourServiceAsyncClient
 // import software.amazon.awssdk.services.yourservice.YourServiceAsyncClient;
@@ -38,7 +38,7 @@ public class UpdateHandler extends BaseHandlerStd {
                 // If your service API does not return ResourceNotFoundException on update requests against some identifier (e.g; resource Name)
                 // and instead returns a 200 even though a resource does not exist, you must first check if the resource exists here
                 // NOTE: If your service API throws 'ResourceNotFoundException' for update requests this method is not necessary
-                proxy.initiate("AWS-QBusiness-Application::Update::PreUpdateCheck", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                proxy.initiate("AWS-QBusiness-Retriever::Update::PreUpdateCheck", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
 
                     // STEP 1.1 [initialize a proxy context]
                     .translateToServiceRequest(Translator::translateToReadRequest)
@@ -62,7 +62,7 @@ public class UpdateHandler extends BaseHandlerStd {
                 // STEP 2.0 [initialize a proxy context]
                 // Implement client invocation of the update request through the proxyClient, which is already initialised with
                 // caller credentials, correct region and retry settings
-                proxy.initiate("AWS-QBusiness-Application::Update::first", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                proxy.initiate("AWS-QBusiness-Retriever::Update::first", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
 
                     // STEP 2.1 [TODO: construct a body of a request]
                     .translateToServiceRequest(Translator::translateToFirstUpdateRequest)
@@ -107,7 +107,7 @@ public class UpdateHandler extends BaseHandlerStd {
                     // STEP 3.0 [initialize a proxy context]
                     // If your resource is provisioned through multiple API calls, you will need to apply each subsequent update
                     // step in a discrete call/stabilize chain to ensure the entire resource is provisioned as intended.
-                    proxy.initiate("AWS-QBusiness-Application::Update::second", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                    proxy.initiate("AWS-QBusiness-Retriever::Update::second", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
 
                     // STEP 3.1 [TODO: construct a body of a request]
                     .translateToServiceRequest(Translator::translateToSecondUpdateRequest)
