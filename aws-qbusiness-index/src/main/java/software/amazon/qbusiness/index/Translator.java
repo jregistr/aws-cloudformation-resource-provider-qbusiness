@@ -4,12 +4,18 @@ import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
 import software.amazon.awssdk.services.qbusiness.model.CreateIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteIndexRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListIndicesRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListIndicesResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateIndexRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.util.Collection;
@@ -118,12 +124,30 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
-  static AwsRequest translateToDeleteRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L33-L37
-    return awsRequest;
+  static DeleteIndexRequest translateToDeleteRequest(final ResourceModel model) {
+    return DeleteIndexRequest.builder()
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .build();
   }
+
+  /**
+   * Request to update properties of a previously created resource
+   *
+   * @param model resource model
+   * @return awsRequest the aws service request to modify a resource
+   */
+  static UpdateIndexRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdateIndexRequest.builder()
+        .name(model.getName())
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .description(model.getDescription())
+        .documentAttributeConfigurations(toServiceDocumentAttributeConfigurations(model.getDocumentAttributeConfigurations()))
+        .capacityUnitConfiguration(toServiceCapacityUnitConfiguration(model.getCapacityUnitConfiguration()))
+        .build();
+  }
+
 
   /**
    * Request to update properties of a previously created resource
@@ -153,8 +177,8 @@ public class Translator {
   /**
    * Request to list resources
    *
-   * @param nextToken     token passed to the aws service list resources request
-   * @param model         resource model
+   * @param nextToken token passed to the aws service list resources request
+   * @param model     resource model
    * @return awsRequest the aws service request to list resources within aws account
    */
   static ListIndicesRequest translateToListRequest(final String nextToken, final ResourceModel model) {
@@ -168,7 +192,7 @@ public class Translator {
    * Translates resource objects from sdk into a resource model (primary identifier only)
    *
    * @param serviceResponse the aws service get resource response
-   * @param applicationId of the list of indices
+   * @param applicationId   of the list of indices
    * @return list of resource models
    */
   static List<ResourceModel> translateFromListRequest(final ListIndicesResponse serviceResponse, final String applicationId) {
@@ -212,24 +236,51 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest tagResourceRequest(final ResourceModel model, final Map<String, String> addedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static TagResourceRequest tagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Map<String, String> addedTags) {
+    var indexArn = Utils.buildIndexArn(request, model);
+
+    List<Tag> toTags = Optional.ofNullable(addedTags)
+        .map(Map::entrySet)
+        .map(pairs -> pairs.stream()
+            .map(pair -> Tag.builder()
+                .key(pair.getKey())
+                .value(pair.getValue())
+                .build()
+            )
+            .toList()
+        )
+        .filter(list -> !list.isEmpty())
+        .orElse(null);
+
+    return TagResourceRequest.builder()
+        .resourceARN(indexArn)
+        .tags(toTags)
+        .build();
   }
 
   /**
-   * Request to add tags to a resource
+   * Request to remove tags from a resource
    *
+   * @param request request details
    * @param model resource model
-   * @return awsRequest the aws service request to create a resource
+   * @return UntagResourceRequest the aws service request to create a resource
    */
-  static AwsRequest untagResourceRequest(final ResourceModel model, final Set<String> removedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static UntagResourceRequest untagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Set<String> removedTags) {
+    var indexArn = Utils.buildIndexArn(request, model);
+    var tagsToRemove = Optional.ofNullable(removedTags)
+        .filter(set -> !set.isEmpty())
+        .orElse(null);
+
+    return UntagResourceRequest.builder()
+        .resourceARN(indexArn)
+        .tagKeys(tagsToRemove)
+        .build();
   }
 
   private static StorageCapacityUnitConfiguration fromServiceCapacityUnitConfiguration(
@@ -256,6 +307,21 @@ public class Translator {
             .name(documentAttributeConfiguration.name())
             .search(documentAttributeConfiguration.searchAsString())
             .type(documentAttributeConfiguration.typeAsString())
+            .build())
+        .collect(Collectors.toList());
+  }
+
+  private static List<software.amazon.awssdk.services.qbusiness.model.DocumentAttributeConfiguration>
+  toServiceDocumentAttributeConfigurations(final List<DocumentAttributeConfiguration> documentAttributeConfigurations) {
+    if (documentAttributeConfigurations == null) {
+      return null;
+    }
+
+    return documentAttributeConfigurations.stream()
+        .map(documentAttributeConfiguration -> software.amazon.awssdk.services.qbusiness.model.DocumentAttributeConfiguration.builder()
+            .name(documentAttributeConfiguration.getName())
+            .search(documentAttributeConfiguration.getSearch())
+            .type(documentAttributeConfiguration.getType())
             .build())
         .collect(Collectors.toList());
   }

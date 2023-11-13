@@ -148,6 +148,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(resultModel.getUpdatedAt()).isEqualTo("2023-10-20T22:02:15Z");
     assertThat(resultModel.getDescription()).isEqualTo("This is a description of the index.");
     assertThat(resultModel.getStatus()).isEqualTo(IndexStatus.ACTIVE.toString());
+    assertThat(resultModel.getCapacityUnitConfiguration().getUnits()).isEqualTo(10D);
     assertThat(resultModel.getIndexStatistics().getTextDocumentStatistics().getIndexedTextDocumentCount()).isEqualTo(1);
     assertThat(resultModel.getIndexStatistics().getTextDocumentStatistics().getIndexedTextBytes()).isEqualTo(1000L);
     assertThat(resultModel.getDocumentAttributeConfigurations().size()).isEqualTo(1);
