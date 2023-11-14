@@ -1,114 +1,94 @@
-package software.amazon.qbusiness.index;
+package software.amazon.qbusiness.datasource;
 
-// TODO: replace all usage of SdkClient with your service client type, e.g; YourServiceAsyncClient
-// import software.amazon.awssdk.services.yourservice.YourServiceAsyncClient;
+import static software.amazon.qbusiness.datasource.Constants.API_DELETE_DATASOURCE;
 
-import software.amazon.awssdk.awscore.AwsResponse;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import java.time.Duration;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.cloudformation.exceptions.CfnGeneralServiceException;
+import software.amazon.awssdk.services.qbusiness.model.DeleteDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteDataSourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+import software.amazon.cloudformation.proxy.delay.Constant;
 
 public class DeleteHandler extends BaseHandlerStd {
-    private Logger logger;
 
-    protected ProgressEvent<ResourceModel, CallbackContext> handleRequest(
-        final AmazonWebServicesClientProxy proxy,
-        final ResourceHandlerRequest<ResourceModel> request,
-        final CallbackContext callbackContext,
-        final ProxyClient<QBusinessClient> proxyClient,
-        final Logger logger) {
+  private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
+      .timeout(Duration.ofHours(4))
+      // Deleting a datasource usually takes about 20 minutes. Let's check every 5 minutes
+      .delay(Duration.ofMinutes(5))
+      .build();
 
-        this.logger = logger;
+  private final Constant backOffStrategy;
 
-        // TODO: Adjust Progress Chain according to your implementation
-        // https://github.com/aws-cloudformation/cloudformation-cli-java-plugin/blob/master/src/main/java/software/amazon/cloudformation/proxy/CallChain.java
+  private Logger logger;
 
-        return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
+  public DeleteHandler() {
+    this(DEFAULT_BACK_OFF_STRATEGY);
+  }
 
-            // STEP 1 [check if resource already exists]
-            // for more information -> https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-test-contract.html
-            // if target API does not support 'ResourceNotFoundException' then following check is required
-            .then(progress ->
-                // STEP 1.0 [initialize a proxy context]
-                // If your service API does not return ResourceNotFoundException on delete requests against some identifier (e.g; resource Name)
-                // and instead returns a 200 even though a resource already deleted, you must first check if the resource exists here
-                // NOTE: If your service API throws 'ResourceNotFoundException' for delete requests this method is not necessary
-                proxy.initiate("AWS-QBusiness-Index::Delete::PreDeletionCheck", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+  public DeleteHandler(Constant backOffStrategy) {
+    this.backOffStrategy = backOffStrategy;
+  }
 
-                    // STEP 1.1 [initialize a proxy context]
-                    .translateToServiceRequest(Translator::translateToReadRequest)
+  protected ProgressEvent<ResourceModel, CallbackContext> handleRequest(
+      final AmazonWebServicesClientProxy proxy,
+      final ResourceHandlerRequest<ResourceModel> request,
+      final CallbackContext callbackContext,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final Logger logger) {
 
-                    // STEP 1.2 [TODO: make an api call]
-                    .makeServiceCall((awsRequest, client) -> {
-                        AwsResponse awsResponse = null;
+    this.logger = logger;
 
-                        // TODO: add custom read resource logic
-
-                        logger.log(String.format("%s has successfully been read.", ResourceModel.TYPE_NAME));
-                        return awsResponse;
-                    })
-
-                    // STEP 1.3 [TODO: handle exception]
-                    .handleError((awsRequest, exception, client, model, context) -> {
-                        // TODO: uncomment when ready to implement
-                        // if (exception instanceof ResourceNotFoundException)
-                        //     return ProgressEvent.success(model, context);
-                        // throw exception;
-                        return ProgressEvent.progress(model, context);
-                    })
-                    .progress()
-            )
-
-            // STEP 2.0 [delete/stabilize progress chain - required for resource deletion]
-            .then(progress ->
-                // If your service API throws 'ResourceNotFoundException' for delete requests then DeleteHandler can return just proxy.initiate construction
-                // STEP 2.0 [initialize a proxy context]
-                // Implement client invocation of the delete request through the proxyClient, which is already initialised with
-                // caller credentials, correct region and retry settings
-                proxy.initiate("AWS-QBusiness-Index::Delete", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
-
-                    // STEP 2.1 [TODO: construct a body of a request]
-                    .translateToServiceRequest(Translator::translateToDeleteRequest)
-
-                    // STEP 2.2 [TODO: make an api call]
-                    .makeServiceCall((awsRequest, client) -> {
-                        AwsResponse awsResponse = null;
-                        try {
-
-                            // TODO: put your delete resource code here
-
-                        } catch (final AwsServiceException e) {
-                            /*
-                            * While the handler contract states that the handler must always return a progress event,
-                            * you may throw any instance of BaseHandlerException, as the wrapper map it to a progress event.
-                            * Each BaseHandlerException maps to a specific error code, and you should map service exceptions as closely as possible
-                            * to more specific error codes
-                            */
-                            throw new CfnGeneralServiceException(ResourceModel.TYPE_NAME, e);
-                        }
-
-                        logger.log(String.format("%s successfully deleted.", ResourceModel.TYPE_NAME));
-                        return awsResponse;
-                    })
-
-                    // STEP 2.3 [TODO: stabilize step is not necessarily required but typically involves describing the resource until it is in a certain status, though it can take many forms]
-                    // for more information -> https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-test-contract.html
-                    .stabilize((awsRequest, awsResponse, client, model, context) -> {
-                        // TODO: put your stabilization code here
-
-                        final boolean stabilized = true;
-                        logger.log(String.format("%s [%s] deletion has stabilized: %s", ResourceModel.TYPE_NAME, model.getPrimaryIdentifier(), stabilized));
-                        return stabilized;
-                    })
-                    .progress()
-            )
-
-            // STEP 3 [TODO: return the successful progress event without resource model]
-            .then(progress -> ProgressEvent.defaultSuccessHandler(null));
+    {
+      var model = request.getDesiredResourceState();
+      logger.log("[INFO] Initiating delete of %s in Stack: %s for ID: %s, application: %s, index: %s".formatted(
+          ResourceModel.TYPE_NAME,
+          request.getStackId(),
+          model.getDataSourceId(),
+          model.getApplicationId(),
+          model.getIndexId()
+      ));
     }
+
+    return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
+        .then(progress ->
+            proxy.initiate("AWS-QBusiness-DataSource::Delete", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                .translateToServiceRequest(Translator::translateToDeleteRequest)
+                .backoffDelay(backOffStrategy)
+                .makeServiceCall(this::callDeleteDataSource)
+                .stabilize((deleteReq, deleteRes, client, model, context) -> isStabilized(client, model))
+                .handleError((deleteReq, error, clientProxyClient, model, context) -> handleError(
+                    deleteReq, model, error, context, logger, API_DELETE_DATASOURCE
+                ))
+                .done(deleteResponse -> ProgressEvent.defaultSuccessHandler(null))
+        );
+  }
+
+  private boolean isStabilized(
+      ProxyClient<QBusinessClient> proxyClient,
+      ResourceModel model
+  ) {
+    try {
+      getDataSource(model, proxyClient);
+      logger.log("[INFO] Delete of %s still stabilizing for Resource id: %s, application: %s, index: %s"
+          .formatted(ResourceModel.TYPE_NAME, model.getDataSourceId(), model.getApplicationId(), model.getIndexId()));
+      return false;
+    } catch (ResourceNotFoundException e) {
+      logger.log("[INFO] Delete process of %s has stabilized for Resource id: %s, application: %s, index: %s"
+          .formatted(ResourceModel.TYPE_NAME, model.getDataSourceId(), model.getApplicationId(), model.getIndexId()));
+      return true;
+    }
+  }
+
+  private DeleteDataSourceResponse callDeleteDataSource(
+      final DeleteDataSourceRequest request,
+      final ProxyClient<QBusinessClient> proxyClient
+  ) {
+    return proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::deleteDataSource);
+  }
 }

@@ -1,54 +1,113 @@
 package software.amazon.qbusiness.application;
 
-import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
-import software.amazon.cloudformation.proxy.Logger;
-import software.amazon.cloudformation.proxy.OperationStatus;
-import software.amazon.cloudformation.proxy.ProgressEvent;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceSummary;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
+import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
+import software.amazon.cloudformation.proxy.ProgressEvent;
+import software.amazon.cloudformation.proxy.ProxyClient;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
-@ExtendWith(MockitoExtension.class)
-public class ListHandlerTest {
+public class ListHandlerTest extends AbstractTestBase {
 
-    @Mock
-    private AmazonWebServicesClientProxy proxy;
+  private static final String TEST_NEXT_TOKEN = "next-token";
+  private static final String APP_ID = "5d31a0e5-2d19-4ac3-90da-34534fa1d2df";
+  private static final String INDEX_ID = "9a2515e0-5760-4414-9fe2-c17e95406e5f";
 
-    @Mock
-    private Logger logger;
+  private AmazonWebServicesClientProxy proxy;
+  private ProxyClient<QBusinessClient> proxyClient;
 
-    @BeforeEach
-    public void setup() {
-        proxy = mock(AmazonWebServicesClientProxy.class);
-        logger = mock(Logger.class);
-    }
+  @Mock
+  private QBusinessClient sdkClient;
 
-    @Test
-    public void handleRequest_SimpleSuccess() {
-        final ListHandler handler = new ListHandler();
+  private AutoCloseable testMocks;
+  private ListHandler underTest;
 
-        final ResourceModel model = ResourceModel.builder().build();
+  private ResourceHandlerRequest<ResourceModel> testRequest;
+  private ResourceModel model;
 
-        final ResourceHandlerRequest<ResourceModel> request = ResourceHandlerRequest.<ResourceModel>builder()
-            .desiredResourceState(model)
-            .build();
+  @BeforeEach
+  public void setup() {
+    testMocks = MockitoAnnotations.openMocks(this);
+    proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
+    proxyClient = MOCK_PROXY(proxy, sdkClient);
 
-        final ProgressEvent<ResourceModel, CallbackContext> response =
-            handler.handleRequest(proxy, request, null, logger);
+    underTest = new ListHandler();
 
-        assertThat(response).isNotNull();
-        assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
-        assertThat(response.getCallbackContext()).isNull();
-        assertThat(response.getCallbackDelaySeconds()).isEqualTo(0);
-        assertThat(response.getResourceModel()).isNull();
-        assertThat(response.getResourceModels()).isNotNull();
-        assertThat(response.getMessage()).isNull();
-        assertThat(response.getErrorCode()).isNull();
-    }
+    model = ResourceModel.builder()
+        .applicationId(APP_ID)
+        .indexId(INDEX_ID)
+        .build();
+
+    testRequest = ResourceHandlerRequest.<ResourceModel>builder()
+        .desiredResourceState(model)
+        .nextToken(TEST_NEXT_TOKEN)
+        .build();
+  }
+
+  @AfterEach
+  public void tearDown() throws Exception {
+    verifyNoMoreInteractions(sdkClient);
+    testMocks.close();
+  }
+
+  @Test
+  public void handleRequest_SimpleSuccess() {
+    // set up
+    List<String> dataSourceIds = List.of(
+        "52868e5a-6cda-4380-a2fd-a50df21b66ea",
+        "406eb804-ccb5-49f3-a9b3-bd348b6e568f",
+        "6b77da76-3dd8-4614-ba6f-0956f6981a49"
+    );
+    when(sdkClient.listDataSources(any(ListDataSourcesRequest.class)))
+        .thenReturn(ListDataSourcesResponse.builder()
+            .nextToken("some-other-token")
+            .summaryItems(dataSourceIds.stream()
+                .map(id -> DataSourceSummary.builder()
+                    .dataSourceId(id)
+                    .build()
+                )
+                .toList())
+            .build()
+        );
+
+    // call method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    assertThat(resultProgress.getResourceModel()).isNull();
+    assertThat(resultProgress.getResourceModels()).isNotEmpty();
+    verify(sdkClient).listDataSources(
+        argThat((ArgumentMatcher<ListDataSourcesRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN) &&
+            t.applicationId().equals(APP_ID) && t.indexId().equals(INDEX_ID)
+        )
+    );
+
+    var modelIds = resultProgress.getResourceModels().stream()
+        .map(ResourceModel::getDataSourceId)
+        .toList();
+    assertThat(modelIds).isEqualTo(dataSourceIds);
+  }
 }
