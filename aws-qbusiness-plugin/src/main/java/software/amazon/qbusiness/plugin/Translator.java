@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.plugin;
+package software.amazon.qbusiness.webexperience;
 
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceRequest;
@@ -9,6 +9,10 @@ import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceReques
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesResponse;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.time.Instant;
@@ -23,15 +27,16 @@ import java.util.stream.Stream;
 
 /**
  * This class is a centralized placeholder for
- *  - api request construction
- *  - object translation to/from aws sdk
- *  - resource model construction for read/list handlers
+ * - api request construction
+ * - object translation to/from aws sdk
+ * - resource model construction for read/list handlers
  */
 
 public class Translator {
 
   /**
    * Request to create a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -48,6 +53,7 @@ public class Translator {
 
   /**
    * Request to read a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
@@ -75,6 +81,7 @@ public class Translator {
 
   /**
    * Translates resource object from sdk into a resource model
+   *
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
@@ -111,6 +118,7 @@ public class Translator {
 
   /**
    * Request to delete a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
@@ -123,6 +131,23 @@ public class Translator {
 
   /**
    * Request to update properties of a previously created resource
+   *
+   * @param model resource model
+   * @return awsRequest the aws service request to modify a resource
+   */
+  static UpdateWebExperienceRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdateWebExperienceRequest.builder()
+        .applicationId(model.getApplicationId())
+        .webExperienceId(model.getWebExperienceId())
+        .title(model.getTitle())
+        .subtitle(model.getSubtitle())
+        .authenticationConfiguration(toServiceAuthenticationConfiguration(model.getAuthenticationConfiguration()))
+        .build();
+  }
+
+  /**
+   * Request to update properties of a previously created resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
@@ -135,6 +160,7 @@ public class Translator {
 
   /**
    * Request to update some other properties that could not be provisioned through first update request
+   *
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
@@ -187,27 +213,57 @@ public class Translator {
 
   /**
    * Request to add tags to a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest tagResourceRequest(final ResourceModel model, final Map<String, String> addedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static TagResourceRequest tagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Map<String, String> addedTags) {
+    var webExperienceArn = Utils.buildWebExperienceArn(request, model);
+
+    List<Tag> toTags = Optional.ofNullable(addedTags)
+        .map(Map::entrySet)
+        .map(pairs -> pairs.stream()
+            .map(pair -> Tag.builder()
+                .key(pair.getKey())
+                .value(pair.getValue())
+                .build()
+            )
+            .toList()
+        )
+        .filter(list -> !list.isEmpty())
+        .orElse(null);
+
+    return TagResourceRequest.builder()
+        .resourceARN(webExperienceArn)
+        .tags(toTags)
+        .build();
   }
 
   /**
-   * Request to add tags to a resource
+   * Request to remove tags from a resource
+   *
+   * @param request request details
    * @param model resource model
-   * @return awsRequest the aws service request to create a resource
+   * @return UntagResourceRequest the aws service request to create a resource
    */
-  static AwsRequest untagResourceRequest(final ResourceModel model, final Set<String> removedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static UntagResourceRequest untagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Set<String> removedTags) {
+    var webExperienceArn = Utils.buildWebExperienceArn(request, model);
+    var tagsToRemove = Optional.ofNullable(removedTags)
+        .filter(set -> !set.isEmpty())
+        .orElse(null);
+
+    return UntagResourceRequest.builder()
+        .resourceARN(webExperienceArn)
+        .tagKeys(tagsToRemove)
+        .build();
   }
+
 
   private static WebExperienceAuthConfiguration fromServiceAuthenticationConfiguration(
       final software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration webExperienceAuthConfiguration) {
