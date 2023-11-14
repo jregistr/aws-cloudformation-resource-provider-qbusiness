@@ -1,14 +1,13 @@
 package software.amazon.qbusiness.retriever;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
-
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.DocumentRelevanceOverrideConfiguration;
@@ -19,9 +18,9 @@ import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.KendraIndexConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.Relevance;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.RetrieverConfiguration;
-import software.amazon.awssdk.services.qbusiness.model.Relevance;
 import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
@@ -31,22 +30,21 @@ import software.amazon.cloudformation.proxy.OperationStatus;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
 public class ReadHandlerTest extends AbstractTestBase {
   private static final String APP_ID = "ApplicationId";
   private static final String RETRIEVER_ID = "RetrieverId";
@@ -65,7 +63,9 @@ public class ReadHandlerTest extends AbstractTestBase {
   private ProxyClient<QBusinessClient> proxyClient;
 
   @Mock
-  QBusinessClient sdkClient;
+  private QBusinessClient sdkClient;
+
+  private AutoCloseable testMocks;
 
   private ReadHandler underTest;
   private ResourceModel model;
@@ -74,6 +74,7 @@ public class ReadHandlerTest extends AbstractTestBase {
 
   @BeforeEach
   public void setup() {
+    testMocks = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
     sdkClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, sdkClient);
@@ -111,9 +112,10 @@ public class ReadHandlerTest extends AbstractTestBase {
   }
 
   @AfterEach
-  public void tear_down() {
+  public void tear_down() throws Exception {
     verify(sdkClient, atLeastOnce()).serviceName();
     verifyNoMoreInteractions(sdkClient);
+    testMocks.close();
   }
 
   @Test

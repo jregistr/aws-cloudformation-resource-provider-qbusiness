@@ -1,7 +1,5 @@
 package software.amazon.qbusiness.retriever;
 
-import static software.amazon.qbusiness.retriever.Constants.API_CREATE_RETRIEVER;
-
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AddRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.AddRetrieverResponse;
@@ -13,6 +11,8 @@ import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
 
 import java.time.Duration;
+
+import static software.amazon.qbusiness.retriever.Constants.API_CREATE_RETRIEVER;
 
 
 public class CreateHandler extends BaseHandlerStd {
@@ -47,8 +47,8 @@ public class CreateHandler extends BaseHandlerStd {
                 .translateToServiceRequest(model -> Translator.translateToCreateRequest(request.getClientRequestToken(), model))
                 .backoffDelay(backOffStrategy)
                 .makeServiceCall((awsRequest, clientProxyClient) -> callCreateRetriever(awsRequest, clientProxyClient, progress.getResourceModel()))
-                .handleError((describeApplicationRequest, error, client, model, context) ->
-                    handleError(describeApplicationRequest, model, error, context, logger, API_CREATE_RETRIEVER))
+                .handleError((createRetrieverRequest, error, client, model, context) ->
+                    handleError(createRetrieverRequest, model, error, context, logger, API_CREATE_RETRIEVER))
                 .progress()
         )
         .then(progress ->

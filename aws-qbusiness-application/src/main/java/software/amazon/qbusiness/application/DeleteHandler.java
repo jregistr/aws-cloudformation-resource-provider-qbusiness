@@ -1,7 +1,5 @@
 package software.amazon.qbusiness.retriever;
 
-import static software.amazon.qbusiness.retriever.Constants.API_DELETE_RETRIEVER;
-
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.DeleteRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteRetrieverResponse;
@@ -13,6 +11,8 @@ import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
 
 import java.time.Duration;
+
+import static software.amazon.qbusiness.retriever.Constants.API_DELETE_RETRIEVER;
 
 
 public class DeleteHandler extends BaseHandlerStd {

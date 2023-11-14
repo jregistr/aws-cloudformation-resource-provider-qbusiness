@@ -1,54 +1,106 @@
 package software.amazon.qbusiness.plugin;
 
-import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
-import software.amazon.cloudformation.proxy.Logger;
-import software.amazon.cloudformation.proxy.OperationStatus;
-import software.amazon.cloudformation.proxy.ProgressEvent;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.ListRetrieversRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListRetrieversResponse;
+import software.amazon.awssdk.services.qbusiness.model.RetrieverSummary;
+import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
+import software.amazon.cloudformation.proxy.ProgressEvent;
+import software.amazon.cloudformation.proxy.ProxyClient;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+
+import java.time.Duration;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+import static software.amazon.qbusiness.retriever.AbstractTestBase.MOCK_CREDENTIALS;
+import static software.amazon.qbusiness.retriever.AbstractTestBase.MOCK_PROXY;
+import static software.amazon.qbusiness.retriever.AbstractTestBase.logger;
 
-@ExtendWith(MockitoExtension.class)
 public class ListHandlerTest {
+    private static final String APP_ID = "ApplicationId";
+    private static final String TEST_NEXT_TOKEN = "this-is-next-token";
 
     @Mock
     private AmazonWebServicesClientProxy proxy;
+    private ProxyClient<QBusinessClient> proxyClient;
 
     @Mock
-    private Logger logger;
+    private QBusinessClient sdkClient;
+
+    private AutoCloseable testMocks;
+    private ListHandler underTest;
+
+    private ResourceHandlerRequest<ResourceModel> testRequest;
 
     @BeforeEach
     public void setup() {
-        proxy = mock(AmazonWebServicesClientProxy.class);
-        logger = mock(Logger.class);
+        testMocks = MockitoAnnotations.openMocks(this);
+        proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
+        proxyClient = MOCK_PROXY(proxy, sdkClient);
+
+        underTest = new ListHandler();
+        testRequest = ResourceHandlerRequest.<ResourceModel>builder()
+            .nextToken(TEST_NEXT_TOKEN)
+            .build();
+    }
+
+    @AfterEach
+    public void tearDown() throws Exception {
+        verifyNoMoreInteractions(sdkClient);
+        testMocks.close();
     }
 
     @Test
     public void handleRequest_SimpleSuccess() {
-        final ListHandler handler = new ListHandler();
+        List<String> ids = List.of(
+            "a98163cb-407b-492c-85d7-a96ebc514eac",
+            "db6a3cc2-3de5-4ede-b802-80f107d63ad8",
+            "25e148e0-777d-4f30-b523-1f895c36cf55"
+        );
+        var listRetrieverSummaries = ids.stream()
+            .map(id -> RetrieverSummary.builder()
+                .applicationId(APP_ID)
+                .retrieverId(id)
+                .build()
+            ).toList();
+        when(sdkClient.listRetrievers(any(ListRetrieversRequest.class)))
+            .thenReturn(ListRetrieversResponse.builder()
+                .summaryItems(listRetrieverSummaries)
+                .build()
+            );
 
-        final ResourceModel model = ResourceModel.builder().build();
+        final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+            proxy, testRequest, new CallbackContext(), proxyClient, logger
+        );
 
-        final ResourceHandlerRequest<ResourceModel> request = ResourceHandlerRequest.<ResourceModel>builder()
-            .desiredResourceState(model)
-            .build();
+        // verify
+        assertThat(resultProgress).isNotNull();
+        assertThat(resultProgress.isSuccess()).isTrue();
+        assertThat(resultProgress.getResourceModel()).isNull();
+        assertThat(resultProgress.getResourceModels()).isNotEmpty();
 
-        final ProgressEvent<ResourceModel, CallbackContext> response =
-            handler.handleRequest(proxy, request, null, logger);
+        var modelRetrieverIds = resultProgress.getResourceModels().stream()
+            .map(model -> {
+                assertThat(model.getApplicationId()).isEqualTo(APP_ID);
+                return model.getRetrieverId();
+            })
+            .toList();
+        assertThat(modelRetrieverIds).isEqualTo(ids);
 
-        assertThat(response).isNotNull();
-        assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
-        assertThat(response.getCallbackContext()).isNull();
-        assertThat(response.getCallbackDelaySeconds()).isEqualTo(0);
-        assertThat(response.getResourceModel()).isNull();
-        assertThat(response.getResourceModels()).isNotNull();
-        assertThat(response.getMessage()).isNull();
-        assertThat(response.getErrorCode()).isNull();
+        verify(sdkClient).listRetrievers(
+            argThat((ArgumentMatcher<ListRetrieversRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN))
+        );
     }
 }

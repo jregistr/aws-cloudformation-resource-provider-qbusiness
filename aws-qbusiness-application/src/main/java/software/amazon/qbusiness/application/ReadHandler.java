@@ -1,7 +1,5 @@
 package software.amazon.qbusiness.retriever;
 
-import static software.amazon.qbusiness.retriever.Constants.API_GET_RETRIEVER;
-
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverResponse;
@@ -10,6 +8,8 @@ import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+
+import static software.amazon.qbusiness.retriever.Constants.API_GET_RETRIEVER;
 
 public class ReadHandler extends BaseHandlerStd {
   private Logger logger;

@@ -1,14 +1,17 @@
 package software.amazon.qbusiness.retriever;
 
-import com.google.common.collect.Lists;
-import software.amazon.awssdk.awscore.AwsRequest;
-import software.amazon.awssdk.awscore.AwsResponse;
 import software.amazon.awssdk.services.qbusiness.model.AddRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListRetrieversRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListRetrieversResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateRetrieverRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.time.Instant;
@@ -96,22 +99,14 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
-  static AwsRequest translateToFirstUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L45-L50
-    return awsRequest;
-  }
-
-  /**
-   * Request to update some other properties that could not be provisioned through first update request
-   * @param model resource model
-   * @return awsRequest the aws service request to modify a resource
-   */
-  static AwsRequest translateToSecondUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    return awsRequest;
+  static UpdateRetrieverRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdateRetrieverRequest.builder()
+        .applicationId(model.getApplicationId())
+        .retrieverId(model.getRetrieverId())
+        .retrieverConfiguration(toServiceRetrieverConfiguration(model.getRetrieverConfiguration()))
+        .retrieverName(model.getRetrieverName())
+        .roleArn(model.getRoleArn())
+        .build();
   }
 
   /**
@@ -119,25 +114,26 @@ public class Translator {
    * @param nextToken token passed to the aws service list resources request
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static AwsRequest translateToListRequest(final String nextToken) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L26-L31
-    return awsRequest;
+  static ListRetrieversRequest translateToListRequest(final String nextToken) {
+    return ListRetrieversRequest.builder()
+        .nextToken(nextToken)
+        .build();
   }
 
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
-   * @param awsResponse the aws service describe resource response
+   * @param serviceResponse the aws service describe resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L75-L82
-    return streamOfOrEmpty(Lists.newArrayList())
-        .map(resource -> ResourceModel.builder()
-            // include only primary identifier
-            .build())
-        .collect(toList());
+  static List<ResourceModel> translateFromListRequest(final ListRetrieversResponse serviceResponse) {
+    return serviceResponse.summaryItems()
+        .stream()
+        .map(summary -> ResourceModel.builder()
+            .applicationId(summary.applicationId())
+            .retrieverId(summary.retrieverId())
+            .build()
+        )
+        .toList();
   }
 
   private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
@@ -151,11 +147,29 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest tagResourceRequest(final ResourceModel model, final Map<String, String> addedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static TagResourceRequest tagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Map<String, String> addedTags) {
+    var retrieverArn = Utils.buildRetrieverArn(request, model);
+
+    List<Tag> toTags = Optional.ofNullable(addedTags)
+        .map(Map::entrySet)
+        .map(pairs -> pairs.stream()
+            .map(pair -> Tag.builder()
+                .key(pair.getKey())
+                .value(pair.getValue())
+                .build()
+            )
+            .toList()
+        )
+        .filter(list -> !list.isEmpty())
+        .orElse(null);
+
+    return TagResourceRequest.builder()
+        .resourceARN(retrieverArn)
+        .tags(toTags)
+        .build();
   }
 
   /**
@@ -163,11 +177,19 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest untagResourceRequest(final ResourceModel model, final Set<String> removedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static UntagResourceRequest untagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Set<String> removedTags) {
+    var retrieverArn = Utils.buildRetrieverArn(request, model);
+    var tagsToRemove = Optional.ofNullable(removedTags)
+        .filter(set -> !set.isEmpty())
+        .orElse(null);
+
+    return UntagResourceRequest.builder()
+        .resourceARN(retrieverArn)
+        .tagKeys(tagsToRemove)
+        .build();
   }
 
   static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {

@@ -1,11 +1,11 @@
 package software.amazon.qbusiness.retriever;
 
-import static software.amazon.qbusiness.retriever.Constants.SERVICE_NAME_LOWER;
-
 import lombok.NonNull;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.util.Locale;
+
+import static software.amazon.qbusiness.retriever.Constants.SERVICE_NAME_LOWER;
 
 
 public class Utils {
