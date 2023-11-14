@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -15,8 +16,7 @@ import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import software.amazon.awssdk.awscore.AwsResponse;
 import software.amazon.awssdk.core.SdkClient;
-// TODO: Critical! Please replace the CloudFormation Tag model below with your service's own SDK Tag model
-import software.amazon.awssdk.services.cloudformation.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -68,6 +68,25 @@ public class TagHelper {
                 .value(tag.getValue())
                 .build())
             .collect(Collectors.toSet());
+    }
+
+    /**
+     * Converts model tags to a list of Tag objects.
+     *
+     * @param modelTags Collection of model tags
+     * @return List of Tag objects
+     */
+    public static List<Tag> serviceTagsFromCfnTags(
+        final Collection<software.amazon.qbusiness.webexperience.Tag> modelTags) {
+        if (modelTags == null) {
+            return null;
+        }
+        return modelTags.stream()
+            .map(tag -> Tag.builder()
+                .key(tag.getKey())
+                .value(tag.getValue())
+                .build()
+            ).toList();
     }
 
     /**
@@ -234,4 +253,16 @@ public class TagHelper {
             .progress();
     }
 
+    /**
+     * Get model tags from service tags.
+     *
+     * @param serviceTags List of service tags
+     * @return List of model tags
+     */
+    public static List<software.amazon.qbusiness.webexperience.Tag> modelTagsFromServiceTags(final List<Tag> serviceTags) {
+        return serviceTags.stream()
+            .map(serviceTag -> new software.amazon.qbusiness.webexperience.Tag(serviceTag.key(), serviceTag.value())
+            )
+            .toList();
+    }
 }

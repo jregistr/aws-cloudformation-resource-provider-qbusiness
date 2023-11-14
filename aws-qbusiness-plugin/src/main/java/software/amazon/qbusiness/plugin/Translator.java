@@ -1,12 +1,21 @@
 package software.amazon.qbusiness.plugin;
 
-import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
-import software.amazon.awssdk.awscore.AwsResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesResponse;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,11 +35,15 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest translateToCreateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static CreateWebExperienceRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
+    return CreateWebExperienceRequest.builder()
+        .clientToken(idempotentToken)
+        .applicationId(model.getApplicationId())
+        .title(model.getTitle())
+        .subtitle(model.getSubtitle())
+        .authenticationConfiguration(toServiceAuthenticationConfiguration(model.getAuthenticationConfiguration()))
+        .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
+        .build();
   }
 
   /**
@@ -38,11 +51,26 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
-  static AwsRequest translateToReadRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L20-L24
-    return awsRequest;
+  static GetWebExperienceRequest translateToReadRequest(final ResourceModel model) {
+    return GetWebExperienceRequest.builder()
+        .applicationId(model.getApplicationId())
+        .webExperienceId(model.getWebExperienceId())
+        .build();
+  }
+
+  /**
+   * Request to list tags for a resource
+   *
+   * @param request resource handler request for the resource model
+   * @param model   resource model
+   * @return awsRequest the aws service request to list tags for a resource
+   */
+  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+    var webExperienceArn = Utils.buildWebExperienceArn(request, model);
+
+    return ListTagsForResourceRequest.builder()
+        .resourceARN(webExperienceArn)
+        .build();
   }
 
   /**
@@ -50,10 +78,34 @@ public class Translator {
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L58-L73
+  static ResourceModel translateFromReadResponse(final GetWebExperienceResponse awsResponse) {
     return ResourceModel.builder()
-        //.someProperty(response.property())
+        .applicationId(awsResponse.applicationId())
+        .webExperienceId(awsResponse.webExperienceId())
+        .status(awsResponse.statusAsString())
+        .title(awsResponse.title())
+        .subtitle(awsResponse.subtitle())
+        .authenticationConfiguration(fromServiceAuthenticationConfiguration(awsResponse.authenticationConfiguration()))
+        .endpoints(fromServiceEndpoints(awsResponse.endpoints()))
+        .createdAt(instantToString(awsResponse.createdAt()))
+        .updatedAt(instantToString(awsResponse.updatedAt()))
+        .build();
+  }
+
+  /**
+   * Request to add tags to resource model
+   *
+   * @param listTagsResponse response from list tags
+   * @param model            resource model
+   * @return model with tags added if they exist
+   */
+  static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
+    if (listTagsResponse == null || !listTagsResponse.hasTags()) {
+      return model;
+    }
+
+    return model.toBuilder()
+        .tags(TagHelper.modelTagsFromServiceTags(listTagsResponse.tags()))
         .build();
   }
 
@@ -62,11 +114,11 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
-  static AwsRequest translateToDeleteRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L33-L37
-    return awsRequest;
+  static DeleteWebExperienceRequest translateToDeleteRequest(final ResourceModel model) {
+    return DeleteWebExperienceRequest.builder()
+        .applicationId(model.getApplicationId())
+        .webExperienceId(model.getWebExperienceId())
+        .build();
   }
 
   /**
@@ -94,28 +146,37 @@ public class Translator {
 
   /**
    * Request to list resources
+   *
    * @param nextToken token passed to the aws service list resources request
+   * @param model     resource model
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static AwsRequest translateToListRequest(final String nextToken) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L26-L31
-    return awsRequest;
+  static ListWebExperiencesRequest translateToListRequest(final String nextToken, final ResourceModel model) {
+    return ListWebExperiencesRequest.builder()
+        .nextToken(nextToken)
+        .applicationId(model.getApplicationId())
+        .build();
   }
 
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
-   * @param awsResponse the aws service describe resource response
+   *
+   * @param serviceResponse the aws service get resource response
+   * @param applicationId   of the list of indices
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L75-L82
-    return streamOfOrEmpty(Lists.newArrayList())
-        .map(resource -> ResourceModel.builder()
-            // include only primary identifier
+  static List<ResourceModel> translateFromListRequest(final ListWebExperiencesResponse serviceResponse, final String applicationId) {
+    return serviceResponse.summaryItems()
+        .stream()
+        .map(summary -> ResourceModel.builder()
+            .applicationId(applicationId)
+            .webExperienceId(summary.id())
+            .status(summary.statusAsString())
+            .createdAt(instantToString(summary.createdAt()))
+            .updatedAt(instantToString(summary.updatedAt()))
+            .endpoints(fromServiceEndpoints(summary.endpoints()))
             .build())
-        .collect(Collectors.toList());
+        .toList();
   }
 
   private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
@@ -146,5 +207,68 @@ public class Translator {
     // TODO: construct a request
     // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
     return awsRequest;
+  }
+
+  private static WebExperienceAuthConfiguration fromServiceAuthenticationConfiguration(
+      final software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration webExperienceAuthConfiguration) {
+    if (Objects.isNull(webExperienceAuthConfiguration)) {
+      return null;
+    }
+
+    return WebExperienceAuthConfiguration.builder()
+        .samlConfigurationOptions(fromServiceWebExperienceAuthConfiguration(webExperienceAuthConfiguration.samlConfigurationOptions()))
+        .build();
+  }
+
+  private static SamlConfigurationOptions fromServiceWebExperienceAuthConfiguration(
+      final software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions samlConfigurationOptions) {
+    return SamlConfigurationOptions.builder()
+        .metadataXML(samlConfigurationOptions.metadataXML())
+        .roleArn(samlConfigurationOptions.roleArn())
+        .userAttribute(samlConfigurationOptions.userAttribute())
+        .userGroupAttribute(samlConfigurationOptions.userGroupAttribute())
+        .build();
+  }
+
+  private static List<WebExperienceEndpointConfig> fromServiceEndpoints(
+      final List<software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig> endpoints) {
+
+    return endpoints.stream()
+        .map(endpoint -> WebExperienceEndpointConfig.builder()
+            .endpoint(endpoint.endpoint())
+            .type(endpoint.typeAsString())
+            .build())
+        .collect(Collectors.toList());
+  }
+
+  private static software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration
+  toServiceAuthenticationConfiguration(final WebExperienceAuthConfiguration authenticationConfiguration) {
+    if (authenticationConfiguration == null || authenticationConfiguration.getSamlConfigurationOptions() == null) {
+      return null;
+    }
+
+    return software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
+        .samlConfigurationOptions(toServiceSamlConfigurationOptions(authenticationConfiguration.getSamlConfigurationOptions()))
+        .build();
+  }
+
+  private static software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions
+  toServiceSamlConfigurationOptions(final SamlConfigurationOptions samlConfigurationOptions) {
+    if (samlConfigurationOptions == null) {
+      return null;
+    }
+
+    return software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+        .metadataXML(samlConfigurationOptions.getMetadataXML())
+        .roleArn(samlConfigurationOptions.getRoleArn())
+        .userAttribute(samlConfigurationOptions.getUserAttribute())
+        .userGroupAttribute(samlConfigurationOptions.getUserGroupAttribute())
+        .build();
+  }
+
+  private static String instantToString(Instant instant) {
+    return Optional.ofNullable(instant)
+        .map(Instant::toString)
+        .orElse(null);
   }
 }

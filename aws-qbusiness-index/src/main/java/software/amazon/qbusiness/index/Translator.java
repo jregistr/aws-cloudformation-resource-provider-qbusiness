@@ -4,7 +4,6 @@ import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
 import software.amazon.awssdk.services.qbusiness.model.CreateIndexRequest;
-import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteIndexRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
@@ -18,6 +17,7 @@ import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UpdateIndexRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -95,8 +95,8 @@ public class Translator {
         .status(awsResponse.statusAsString())
         .description(awsResponse.description())
         .documentAttributeConfigurations(fromServiceDocumentAttributeConfigurations(awsResponse.documentAttributeConfigurations()))
-        .createdAt(awsResponse.createdAt().toString())
-        .updatedAt(awsResponse.updatedAt().toString())
+        .createdAt(instantToString(awsResponse.createdAt()))
+        .updatedAt(instantToString(awsResponse.updatedAt()))
         .capacityUnitConfiguration(fromServiceCapacityUnitConfiguration(awsResponse.capacityUnitConfiguration()))
         .build();
   }
@@ -201,8 +201,8 @@ public class Translator {
         .map(summary -> ResourceModel.builder()
             .indexId(summary.indexId())
             .applicationId(applicationId)
-            .createdAt(summary.createdAt().toString())
-            .updatedAt(summary.updatedAt().toString())
+            .createdAt(instantToString(summary.createdAt()))
+            .updatedAt(instantToString(summary.updatedAt()))
             .name(summary.name())
             .status(summary.statusAsString())
             .build())
@@ -360,5 +360,11 @@ public class Translator {
     return software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
         .units(storageCapacityUnitConfiguration.getUnits().intValue())
         .build();
+  }
+
+  private static String instantToString(Instant instant) {
+    return Optional.ofNullable(instant)
+        .map(Instant::toString)
+        .orElse(null);
   }
 }
