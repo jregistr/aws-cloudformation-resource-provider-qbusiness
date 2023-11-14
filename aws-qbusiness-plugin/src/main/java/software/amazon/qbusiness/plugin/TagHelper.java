@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -232,6 +233,30 @@ public class TagHelper {
                 // e.g. proxy.injectCredentialsAndInvokeV2(request, client.client()::untagResource)
             })
             .progress();
+    }
+
+    public static List<software.amazon.qbusiness.plugin.Tag> cfnTagsFromServiceTags(
+            List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
+    ) {
+        return serviceTags.stream()
+                .map(serviceTag -> new software.amazon.qbusiness.plugin.Tag(
+                        serviceTag.key(), serviceTag.value()))
+                .toList();
+    }
+
+    public static List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTagsFromCfnTags(
+            Collection<software.amazon.qbusiness.plugin.Tag> modelTags
+    ) {
+        if (modelTags == null) {
+            return null;
+        }
+
+        return modelTags.stream()
+                .map(tag -> software.amazon.awssdk.services.qbusiness.model.Tag.builder()
+                        .key(tag.getKey())
+                        .value(tag.getValue())
+                        .build())
+                .toList();
     }
 
 }

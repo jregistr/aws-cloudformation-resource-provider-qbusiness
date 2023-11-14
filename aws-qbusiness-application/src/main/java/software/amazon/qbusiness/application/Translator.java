@@ -3,7 +3,16 @@ package software.amazon.qbusiness.application;
 import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreatePluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeletePluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetPluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetPluginResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.UpdatePluginRequest;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -26,11 +35,16 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest translateToCreateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static CreatePluginRequest translateToCreateRequest(final ResourceModel model, final String idempotenceToken) {
+      return CreatePluginRequest.builder()
+              .applicationId(model.getApplicationId())
+              .displayName(model.getDisplayName())
+              .type(model.getType())
+              .serverUrl(model.getServerUrl())
+              .authConfiguration(AuthConfigHelper.convertToServiceAuthConfig(model.getAuthConfiguration()))
+              .clientToken(idempotenceToken)
+              .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
+            .build();
   }
 
   /**
@@ -38,11 +52,11 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
-  static AwsRequest translateToReadRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L20-L24
-    return awsRequest;
+  static GetPluginRequest translateToReadRequest(final ResourceModel model) {
+    return GetPluginRequest.builder()
+              .applicationId(model.getApplicationId())
+              .pluginId(model.getPluginId())
+            .build();
   }
 
   /**
@@ -50,11 +64,18 @@ public class Translator {
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L58-L73
+  static ResourceModel translateFromReadResponse(final GetPluginResponse awsResponse) {
     return ResourceModel.builder()
-        //.someProperty(response.property())
-        .build();
+            .applicationId(awsResponse.applicationId())
+            .pluginId(awsResponse.pluginId())
+            .type(awsResponse.typeAsString())
+            .displayName(awsResponse.displayName())
+            .serverUrl(awsResponse.serverUrl())
+            .authConfiguration(AuthConfigHelper.convertFromServiceAuthConfig(awsResponse.authConfiguration()))
+            .state(awsResponse.stateAsString())
+            .createdAt(instantToString(awsResponse.createdAt()))
+            .lastUpdatedAt(instantToString(awsResponse.lastUpdatedAt()))
+          .build();
   }
 
   /**
@@ -62,11 +83,11 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
-  static AwsRequest translateToDeleteRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L33-L37
-    return awsRequest;
+  static DeletePluginRequest translateToDeleteRequest(final ResourceModel model) {
+    return DeletePluginRequest.builder()
+              .pluginId(model.getPluginId())
+              .applicationId(model.getApplicationId())
+            .build();
   }
 
   /**
@@ -74,22 +95,13 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
-  static AwsRequest translateToFirstUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L45-L50
-    return awsRequest;
-  }
-
-  /**
-   * Request to update some other properties that could not be provisioned through first update request
-   * @param model resource model
-   * @return awsRequest the aws service request to modify a resource
-   */
-  static AwsRequest translateToSecondUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    return awsRequest;
+  static UpdatePluginRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdatePluginRequest.builder()
+              .displayName(model.getDisplayName())
+              .serverUrl(model.getServerUrl())
+              .authConfiguration(AuthConfigHelper.convertToServiceAuthConfig(model.getAuthConfiguration()))
+              .state(model.getState())
+            .build();
   }
 
   /**
@@ -137,7 +149,7 @@ public class Translator {
   }
 
   /**
-   * Request to add tags to a resource
+   * Request to remove tags from a resource
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -147,4 +159,28 @@ public class Translator {
     // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
     return awsRequest;
   }
+
+  static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
+    if (listTagsResponse == null || !listTagsResponse.hasTags())  {
+      return model;
+    }
+
+    return model.toBuilder()
+        .tags(TagHelper.cfnTagsFromServiceTags(listTagsResponse.tags()))
+        .build();
+  }
+
+  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+    var pluginArn = model.getPluginArn();
+    return ListTagsForResourceRequest.builder()
+        .resourceARN(pluginArn)
+        .build();
+  }
+
+  static String instantToString(Instant instant) {
+    return Optional.ofNullable(instant)
+        .map(Instant::toString)
+        .orElse(null);
+  }
+
 }
