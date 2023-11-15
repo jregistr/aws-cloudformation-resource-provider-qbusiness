@@ -23,10 +23,10 @@ public class Utils {
     var indexId = model.getIndexId();
     var dataSourceId = model.getDataSourceId();
 
-    return buildApplicationArn(partition, region, accountId, applicationId, indexId, dataSourceId);
+    return buildDataSourceArn(partition, region, accountId, applicationId, indexId, dataSourceId);
   }
 
-  private static String buildApplicationArn(
+  private static String buildDataSourceArn(
       @NonNull String partition,
       @NonNull String region,
       @NonNull String accountId,

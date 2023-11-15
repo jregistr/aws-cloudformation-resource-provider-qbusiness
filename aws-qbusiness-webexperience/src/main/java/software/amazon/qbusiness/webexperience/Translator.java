@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.webexperience;
+package software.amazon.qbusiness.datasource;
 
 import static software.amazon.qbusiness.datasource.translators.DataSourceConfigurationTranslator.fromServiceDataSourceConfiguration;
 import static software.amazon.qbusiness.datasource.translators.DataSourceConfigurationTranslator.toServiceDataSourceConfiguration;
@@ -22,6 +22,10 @@ import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateDataSourceRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class Translator {
@@ -152,13 +156,21 @@ public class Translator {
    * Request to update properties of a previously created resource
    *
    * @param model resource model
-   * @return awsRequest the aws service request to modify a resource
+   * @return UpdateDataSourceRequest the aws service request to modify a resource
    */
-  static AwsRequest translateToFirstUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L45-L50
-    return awsRequest;
+  static UpdateDataSourceRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdateDataSourceRequest.builder()
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .dataSourceId(model.getDataSourceId())
+        .description(model.getDescription())
+        .name(model.getName())
+        .roleArn(model.getRoleArn())
+        .schedule(model.getSchedule())
+        .vpcConfiguration(toServiceDataSourceVpcConfiguration(model.getVpcConfiguration()))
+        .configuration(toServiceDataSourceConfiguration(model.getConfiguration()))
+        .customDocumentEnrichmentConfiguration(toServiceCustomDocumentEnrichmentConf(model.getCustomDocumentEnrichmentConfiguration()))
+        .build();
   }
 
   /**
@@ -223,23 +235,50 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest tagResourceRequest(final ResourceModel model, final Map<String, String> addedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static TagResourceRequest tagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Map<String, String> addedTags) {
+    var dataSourceArn = Utils.buildDataSourceArn(request, model);
+
+    List<software.amazon.awssdk.services.qbusiness.model.Tag> toTags = Optional.ofNullable(addedTags)
+        .map(Map::entrySet)
+        .map(pairs -> pairs.stream()
+            .map(pair -> Tag.builder()
+                .key(pair.getKey())
+                .value(pair.getValue())
+                .build()
+            )
+            .toList()
+        )
+        .filter(list -> !list.isEmpty())
+        .orElse(null);
+
+    return TagResourceRequest.builder()
+        .resourceARN(dataSourceArn)
+        .tags(toTags)
+        .build();
   }
 
   /**
    * Request to add tags to a resource
    *
    * @param model resource model
-   * @return awsRequest the aws service request to create a resource
+   * @return UntagResourceRequest the aws service request to create a resource
    */
-  static AwsRequest untagResourceRequest(final ResourceModel model, final Set<String> removedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static UntagResourceRequest untagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model,
+      final Set<String> removedTags) {
+    var dataSourceArn = Utils.buildDataSourceArn(request, model);
+    var tagsToRemove = Optional.ofNullable(removedTags)
+        .filter(set -> !set.isEmpty())
+        .orElse(null);
+
+    return UntagResourceRequest.builder()
+        .resourceARN(dataSourceArn)
+        .tagKeys(tagsToRemove)
+        .build();
   }
+
 }

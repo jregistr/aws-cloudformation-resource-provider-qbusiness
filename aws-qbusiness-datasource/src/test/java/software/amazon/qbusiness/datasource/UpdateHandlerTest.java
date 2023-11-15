@@ -58,7 +58,6 @@ public class UpdateHandlerTest extends AbstractTestBase {
   @Mock
   private QBusinessClient sdkClient;
   private AutoCloseable testMocks;
-
   private ResourceHandlerRequest<ResourceModel> testRequest;
   private ResourceModel previousModel;
   private ResourceModel updateModel;

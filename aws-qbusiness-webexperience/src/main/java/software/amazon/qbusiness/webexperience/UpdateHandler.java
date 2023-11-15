@@ -87,9 +87,7 @@ public class UpdateHandler extends BaseHandlerStd {
           }
 
           return proxy.initiate("AWS-QBusiness-Application::TagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
-              .translateToServiceRequest(model -> {
-                return Translator.tagResourceRequest(request, model, tagsToAdd);
-              })
+              .translateToServiceRequest(model -> Translator.tagResourceRequest(request, model, tagsToAdd))
               .makeServiceCall(this::callTagResource)
               .progress();
         })
@@ -133,7 +131,7 @@ public class UpdateHandler extends BaseHandlerStd {
     GetApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
     var status = getAppResponse.status();
     var hasStabilized = ApplicationStatus.ACTIVE.equals(status);
-    logger.log("[INFO] %s with ID: %s has stabilized.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+    logger.log("[INFO] %s with ID: %s has stabilized: %s.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId(), hasStabilized));
     return hasStabilized;
   }
 
