@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.plugin;
 
 import java.time.Duration;
 import java.util.stream.Stream;
@@ -7,6 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentMatcher;
+import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
@@ -58,6 +59,7 @@ public class DeleteHandlerTest extends AbstractTestBase {
     @Mock
     QBusinessClient qbusinessClient;
 
+    private AutoCloseable testMocks;
     private DeleteHandler underTest;
     private ResourceModel resourceModel;
     private ResourceHandlerRequest<ResourceModel> request;
@@ -65,8 +67,8 @@ public class DeleteHandlerTest extends AbstractTestBase {
 
     @BeforeEach
     public void setup() {
+        testMocks = MockitoAnnotations.openMocks(this);
         proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-        qbusinessClient = mock(QBusinessClient.class);
         proxyClient = MOCK_PROXY(proxy, qbusinessClient);
         this.underTest = new DeleteHandler();
 
@@ -85,9 +87,10 @@ public class DeleteHandlerTest extends AbstractTestBase {
     }
 
     @AfterEach
-    public void tear_down() {
+    public void tear_down() throws Exception {
         verify(qbusinessClient, atLeastOnce()).serviceName();
         verifyNoMoreInteractions(qbusinessClient);
+        testMocks.close();
     }
 
     @Test

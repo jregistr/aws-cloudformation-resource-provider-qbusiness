@@ -1,14 +1,19 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.plugin;
 
 import com.google.common.collect.Lists;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
+import software.amazon.awssdk.protocols.core.InstantToString;
 import software.amazon.awssdk.services.qbusiness.model.CreatePluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeletePluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetPluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetPluginResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListPluginsRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListPluginsResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UpdatePluginRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
@@ -109,25 +114,32 @@ public class Translator {
    * @param nextToken token passed to the aws service list resources request
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static AwsRequest translateToListRequest(final String nextToken) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L26-L31
-    return awsRequest;
+  static ListPluginsRequest translateToListRequest(final String applicationId, final String nextToken) {
+    return ListPluginsRequest.builder()
+            .applicationId(applicationId)
+            .nextToken(nextToken)
+            .build();
   }
 
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
-   * @param awsResponse the aws service describe resource response
+   * @param listPluginsResponse the aws service list resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L75-L82
-    return streamOfOrEmpty(Lists.newArrayList())
-        .map(resource -> ResourceModel.builder()
-            // include only primary identifier
-            .build())
-        .collect(Collectors.toList());
+  static List<ResourceModel> translateFromListRequest(final ListPluginsResponse listPluginsResponse) {
+    return listPluginsResponse.plugins()
+            .stream()
+            .map(pluginSummary -> ResourceModel.builder()
+                    .pluginId(pluginSummary.pluginId())
+                    .displayName(pluginSummary.displayName())
+                    .type(pluginSummary.type().toString())
+                    .serverUrl(pluginSummary.serverUrl())
+                    .state(pluginSummary.stateAsString())
+                    .createdAt(instantToString(pluginSummary.createdAt()))
+                    .lastUpdatedAt(instantToString(pluginSummary.lastUpdatedAt()))
+                    .build())
+            .toList();
+
   }
 
   private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
@@ -138,26 +150,48 @@ public class Translator {
 
   /**
    * Request to add tags to a resource
-   * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest tagResourceRequest(final ResourceModel model, final Map<String, String> addedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static TagResourceRequest tagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final Map<String, String> addedTags) {
+    var pluginArn = request.getDesiredResourceState().getPluginArn();
+
+    List<software.amazon.awssdk.services.qbusiness.model.Tag> toTags = Optional.ofNullable(addedTags)
+        .map(Map::entrySet)
+        .map(pairs -> pairs.stream()
+            .map(pair -> software.amazon.awssdk.services.qbusiness.model.Tag.builder()
+                .key(pair.getKey())
+                .value(pair.getValue())
+                .build()
+            )
+            .toList()
+        )
+        .filter(list -> !list.isEmpty())
+        .orElse(null);
+
+    return TagResourceRequest.builder()
+        .resourceARN(pluginArn)
+        .tags(toTags)
+        .build();
   }
 
   /**
    * Request to remove tags from a resource
-   * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AwsRequest untagResourceRequest(final ResourceModel model, final Set<String> removedTags) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L39-L43
-    return awsRequest;
+  static UntagResourceRequest untagResourceRequest(
+      final ResourceHandlerRequest<ResourceModel> request,
+      final Set<String> removedTags) {
+    var pluginArn = request.getDesiredResourceState().getPluginArn();
+    var tagsToRemove = Optional.ofNullable(removedTags)
+        .filter(set -> !set.isEmpty())
+        .orElse(null);
+
+    return UntagResourceRequest.builder()
+        .resourceARN(pluginArn)
+        .tagKeys(tagsToRemove)
+        .build();
   }
 
   static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {

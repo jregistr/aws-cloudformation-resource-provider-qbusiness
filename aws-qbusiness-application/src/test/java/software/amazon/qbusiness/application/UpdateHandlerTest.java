@@ -1,11 +1,18 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.plugin;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatcher;
+import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
@@ -14,9 +21,14 @@ import software.amazon.awssdk.services.qbusiness.model.GetPluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetPluginResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.ServiceQuotaExceededException;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.TagResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UntagResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.UpdatePluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.UpdatePluginResponse;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
@@ -32,11 +44,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import software.amazon.cloudformation.proxy.delay.Constant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -57,6 +73,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
     private static final String UPDATED_SERVER_URL = "UpdatedServerUrl";
     private static final String UPDATED_ROLE_ARN = "updated-role-1";
     private static final String UPDATED_SECRET_ARN = "updated-secret-1";
+    private static final String CLIENT_TOKEN = "client-token";
     private static final String AWS_PARTITION = "aws";
     private static final String ACCOUNT_ID = "123456789012";
     private static final String REGION = "us-west-2";
@@ -70,6 +87,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
     @Mock
     QBusinessClient qbusinessClient;
 
+    private AutoCloseable testMocks;
     private UpdateHandler underTest;
     private PluginAuthConfiguration serviceAuthConfiguration;
     private PluginAuthConfiguration updatedServiceAuthConfiguration;
@@ -78,13 +96,18 @@ public class UpdateHandlerTest extends AbstractTestBase {
     private ResourceModel model;
     private ResourceModel updatedModel;
     private ResourceHandlerRequest<ResourceModel> request;
+    private final TagHelper tagHelper = spy(new TagHelper());
 
     @BeforeEach
     public void setup() {
+        testMocks = MockitoAnnotations.openMocks(this);
+        var testBackOff = Constant.of()
+            .delay(Duration.ofSeconds(5))
+            .timeout(Duration.ofSeconds(45))
+        .build();
         proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-        qbusinessClient = mock(QBusinessClient.class);
         proxyClient = MOCK_PROXY(proxy, qbusinessClient);
-        this.underTest = new UpdateHandler();
+        this.underTest = new UpdateHandler(testBackOff, tagHelper);
 
         serviceAuthConfiguration = PluginAuthConfiguration.builder()
                 .basicAuthConfiguration(BasicAuthConfiguration.builder()
@@ -109,8 +132,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
         updatedCfnAuthConfiguration = software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration.builder()
                 .basicAuthConfiguration(software.amazon.awssdk.services.qbusiness.model.BasicAuthConfiguration.builder()
-                        .roleArn(UPDATED_ROLE_ARN)
                         .secretArn(UPDATED_SECRET_ARN)
+                        .roleArn(UPDATED_ROLE_ARN)
                         .build())
                 .build();
 
@@ -122,6 +145,11 @@ public class UpdateHandlerTest extends AbstractTestBase {
                     .state(PLUGIN_STATE)
                     .serverUrl(SERVER_URL)
                     .authConfiguration(serviceAuthConfiguration)
+                    .tags(List.of(
+                        Tag.builder().key("remain").value("thesame").build(),
+                        Tag.builder().key("toremove").value("nolongerthere").build(),
+                        Tag.builder().key("iwillchange").value("oldvalue").build()
+                    ))
                 .build();
 
         updatedModel = ResourceModel.builder()
@@ -132,31 +160,43 @@ public class UpdateHandlerTest extends AbstractTestBase {
                     .state(UPDATED_PLUGIN_STATE)
                     .serverUrl(UPDATED_SERVER_URL)
                     .authConfiguration(updatedServiceAuthConfiguration)
+                    .tags(List.of(
+                        Tag.builder().key("remain").value("thesame").build(),
+                        Tag.builder().key("iwillchange").value("nowanewvalue").build(),
+                        Tag.builder().key("iamnew").value("overhere").build()
+                    ))
                 .build();
 
-        request = ResourceHandlerRequest.<ResourceModel>builder()
-                    .awsPartition(AWS_PARTITION)
-                    .region(REGION)
-                    .awsAccountId(ACCOUNT_ID)
-                    .desiredResourceState(model)
-                .build();
-    }
-
-    @AfterEach
-    public void tear_down() {
-        verify(qbusinessClient, atLeastOnce()).serviceName();
-        verifyNoMoreInteractions(qbusinessClient);
-    }
-
-    @Test
-    public void handleRequest_SimpleSuccess() {
+       request = ResourceHandlerRequest.<ResourceModel>builder()
+              .awsPartition(AWS_PARTITION)
+              .region(REGION)
+              .awsAccountId(ACCOUNT_ID)
+              .systemTags(Map.of(
+                  "aws::cloudformation::created", "onthisday"
+              ))
+              .previousSystemTags(Map.of(
+                  "aws::cloudformation::created", "onthisday"
+              ))
+              .previousResourceTags(Map.of(
+                  "stacksame", "value",
+                  "stackchange", "whowho",
+                  "stack-i-remove", "hello"
+              ))
+              .desiredResourceTags(Map.of(
+                  "stacksame", "value",
+                  "stackchange", "whatwhenwhere",
+                  "stacknewaddition", "newvalue"
+              ))
+              .previousResourceState(model)
+              .desiredResourceState(updatedModel)
+              .clientRequestToken(CLIENT_TOKEN)
+            .build();
 
         when(proxyClient.client().updatePlugin(any(UpdatePluginRequest.class)))
           .thenReturn(UpdatePluginResponse.builder()
               .build());
-
-        when(proxyClient.client().getPlugin(any(GetPluginRequest.class)))
-          .thenReturn(GetPluginResponse.builder()
+        when(qbusinessClient.getPlugin(any(GetPluginRequest.class)))
+        .thenReturn(GetPluginResponse.builder()
                   .applicationId(APPLICATION_ID)
                   .pluginId(PLUGIN_ID)
                   .displayName(UPDATED_PLUGIN_NAME)
@@ -164,21 +204,73 @@ public class UpdateHandlerTest extends AbstractTestBase {
                   .state(UPDATED_PLUGIN_STATE)
                   .serverUrl(UPDATED_SERVER_URL)
                   .authConfiguration(updatedCfnAuthConfiguration)
-              .build());
+            .build());
 
-        final ProgressEvent<ResourceModel, CallbackContext> response = underTest.handleRequest(proxy, request, new CallbackContext(), proxyClient, logger);
+         when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class)))
+          .thenReturn(ListTagsForResourceResponse.builder().tags(List.of()).build());
+    }
 
-        verify(qbusinessClient).updatePlugin(any(UpdatePluginRequest.class));
-        verify(qbusinessClient).getPlugin(any(GetPluginRequest.class));
-        verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+    @AfterEach
+    public void tear_down() throws Exception {
+        verify(qbusinessClient, atLeastOnce()).serviceName();
+        verifyNoMoreInteractions(qbusinessClient);
+        testMocks.close();
+    }
 
-        assertThat(response).isNotNull();
-        assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
-        assertThat(response.getCallbackDelaySeconds()).isEqualTo(0);
-        assertThat(response.getResourceModel()).isEqualTo(updatedModel);
-        assertThat(response.getResourceModels()).isNull();
-        assertThat(response.getMessage()).isNull();
-        assertThat(response.getErrorCode()).isNull();
+    @Test
+    public void handleRequest_SimpleSuccess() {
+
+      when(qbusinessClient.tagResource(any(TagResourceRequest.class)))
+          .thenReturn(TagResourceResponse.builder().build());
+      when(qbusinessClient.untagResource(any(UntagResourceRequest.class)))
+          .thenReturn(UntagResourceResponse.builder().build());
+      final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+          proxy, request, new CallbackContext(), proxyClient, logger
+      );
+
+      assertThat(resultProgress).isNotNull();
+      assertThat(resultProgress.isSuccess()).isTrue();
+      ArgumentCaptor<UpdatePluginRequest> updatePluginReqCaptor = ArgumentCaptor.forClass(UpdatePluginRequest.class);
+      verify(qbusinessClient).updatePlugin(updatePluginReqCaptor.capture());
+      assertThat(resultProgress.getResourceModel().getApplicationId()).isEqualTo(APPLICATION_ID);
+      assertThat(resultProgress.getResourceModel().getPluginId()).isEqualTo(PLUGIN_ID);
+      assertThat(resultProgress.getResourceModel().getAuthConfiguration().getBasicAuthConfiguration().getRoleArn())
+              .isEqualTo(AuthConfigHelper.convertToServiceAuthConfig(updatedModel.getAuthConfiguration())
+                      .basicAuthConfiguration().roleArn());
+      assertThat(resultProgress.getResourceModel().getAuthConfiguration().getBasicAuthConfiguration().getSecretArn())
+              .isEqualTo(AuthConfigHelper.convertToServiceAuthConfig(updatedModel.getAuthConfiguration())
+                       .basicAuthConfiguration().secretArn());
+      assertThat(resultProgress.getResourceModel().getDisplayName()).isEqualTo(UPDATED_PLUGIN_NAME);
+      assertThat(resultProgress.getResourceModel().getState()).isEqualTo(UPDATED_PLUGIN_STATE);
+      assertThat(resultProgress.getResourceModel().getServerUrl()).isEqualTo(UPDATED_SERVER_URL);
+
+      verify(qbusinessClient).getPlugin(
+          argThat((ArgumentMatcher<GetPluginRequest>) t ->
+              t.applicationId().equals(APPLICATION_ID) && t.pluginId().equals(PLUGIN_ID)
+          )
+      );
+      verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+
+      var tagReqCaptor = ArgumentCaptor.forClass(TagResourceRequest.class);
+      var untagReqCaptor = ArgumentCaptor.forClass(UntagResourceRequest.class);
+      verify(qbusinessClient).tagResource(tagReqCaptor.capture());
+      verify(qbusinessClient).untagResource(untagReqCaptor.capture());
+
+      var tagResourceRequest = tagReqCaptor.getValue();
+      Map<String, String> tagsInTagResourceReq = tagResourceRequest.tags().stream()
+          .collect(Collectors.toMap(tag -> tag.key(), tag -> tag.value()));
+      assertThat(tagsInTagResourceReq).containsOnly(
+          Map.entry("iwillchange", "nowanewvalue"),
+          Map.entry("iamnew", "overhere"),
+          Map.entry("stackchange", "whatwhenwhere"),
+          Map.entry("stacknewaddition", "newvalue")
+      );
+
+      var untagResourceReq = untagReqCaptor.getValue();
+      assertThat(untagResourceReq.tagKeys()).containsOnlyOnceElementsOf(List.of(
+          "toremove",
+          "stack-i-remove"
+      ));
     }
 
     private static Stream<Arguments> serviceErrorAndHandlerCodes() {
@@ -193,23 +285,150 @@ public class UpdateHandlerTest extends AbstractTestBase {
         );
     }
 
-  @ParameterizedTest
-  @MethodSource("serviceErrorAndHandlerCodes")
-  public void testThatItReturnsExpectedErrorCode(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
+  @Test
+  public void testThatItDoesntTagAndUnTag() {
+    when(qbusinessClient.tagResource(any(TagResourceRequest.class)))
+        .thenReturn(TagResourceResponse.builder().build());
+    request.setPreviousResourceTags(Map.of(
+        "stacksame", "value"
+    ));
+    request.setDesiredResourceTags(Map.of(
+        "stacksame", "newValue"
+    ));
+    model.setTags(List.of(
+        Tag.builder().key("datTag").value("valuea").build()
+    ));
+    updatedModel.setTags(List.of(
+        Tag.builder().key("datTag").value("valueb").build()
+    ));
 
-    // set up test
-    when(proxyClient.client().updatePlugin(any(UpdatePluginRequest.class)))
-        .thenThrow(serviceError);
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, request, new CallbackContext(), proxyClient, logger
+    );
+
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    verify(qbusinessClient).updatePlugin(any(UpdatePluginRequest.class));
+
+    verify(qbusinessClient).getPlugin(
+        argThat((ArgumentMatcher<GetPluginRequest>) t ->
+          t.applicationId().equals(APPLICATION_ID) && t.pluginId().equals(PLUGIN_ID)
+        )
+    );
+    verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+
+    var tagReqCaptor = ArgumentCaptor.forClass(TagResourceRequest.class);
+    verify(qbusinessClient).tagResource(tagReqCaptor.capture());
+
+    var tagRequest = tagReqCaptor.getValue();
+    Map<String, String> tagsAddedInReq = tagRequest.tags().stream()
+        .collect(Collectors.toMap(tag -> tag.key(), tag -> tag.value()));
+
+    assertThat(tagsAddedInReq.entrySet()).isEqualTo(Set.of(
+        Map.entry("stacksame", "newValue"),
+        Map.entry("datTag", "valueb")
+    ));
+  }
+
+  @Test
+  public void testThatItCallsUnTagButSkipsCallingTag() {
+    when(qbusinessClient.untagResource(any(UntagResourceRequest.class)))
+        .thenReturn(UntagResourceResponse.builder().build());
+    model.setTags(List.of(
+        Tag.builder().key("remain").value("thesame").build(),
+        Tag.builder().key("toBeRemove").value("theValue").build()
+    ));
+    updatedModel.setTags(List.of(
+        Tag.builder().key("remain").value("thesame").build()
+    ));
+    request.setPreviousResourceTags(Map.of(
+        "stacksame", "value"
+    ));
+    request.setDesiredResourceTags(Map.of(
+        "stacksame", "value"
+    ));
 
     // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
         proxy, request, new CallbackContext(), proxyClient, logger
     );
 
     // verify
-    assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
-    assertThat(responseProgress.getResourceModels()).isNull();
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    verify(qbusinessClient).updatePlugin(any(UpdatePluginRequest.class));
+    verify(qbusinessClient).getPlugin(
+        argThat((ArgumentMatcher<GetPluginRequest>) t ->
+            t.applicationId().equals(APPLICATION_ID) && t.pluginId().equals(PLUGIN_ID)
+        )
+    );
+    verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+
+    var untagReqCaptor = ArgumentCaptor.forClass(UntagResourceRequest.class);
+    verify(qbusinessClient).untagResource(untagReqCaptor.capture());
+
+    verify(qbusinessClient, times(0)).tagResource(any(TagResourceRequest.class));
+
+    var untagReq = untagReqCaptor.getValue();
+    assertThat(untagReq.tagKeys()).isEqualTo(List.of("toBeRemove"));
+  }
+
+  private static Stream<Arguments> tagAndUntagArguments() {
+    return Stream.of(
+        Arguments.of(
+            null,
+            Map.of("datTag", "suchValue"),
+            Map.of("stacksame", "newValue")
+        ),
+        Arguments.of(
+            List.of(Tag.builder().key("datTag").value("valuea").build()),
+            null,
+            Map.of("stacksame", "newValue")
+        ),
+        Arguments.of(
+            List.of(Tag.builder().key("datTag").value("valuea").build()),
+            Map.of("stacksame", "newValue"),
+            null
+        ),
+        Arguments.of(
+            null,
+            null,
+            null
+        )
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource("tagAndUntagArguments")
+  public void testThatItDoesntTagAndUnTagWhenTagFieldsAreNull(
+      List<Tag> modelTags,
+      Map<String, String> reqTags,
+      Map<String, String> sysTags
+  ) {
+    // set up test scenario
+    model.setTags(modelTags);
+    updatedModel.setTags(modelTags);
+    request.setPreviousResourceTags(reqTags);
+    request.setDesiredResourceTags(reqTags);
+    request.setPreviousSystemTags(sysTags);
+    request.setSystemTags(sysTags);
+
+    // call method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, request, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    verify(qbusinessClient).updatePlugin(any(UpdatePluginRequest.class));
+    verify(qbusinessClient).getPlugin(
+        argThat((ArgumentMatcher<GetPluginRequest>) t ->
+            t.applicationId().equals(APPLICATION_ID) && t.pluginId().equals(PLUGIN_ID)
+        )
+    );
+    verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+    verify(tagHelper).shouldUpdateTags(any());
   }
 
 }
