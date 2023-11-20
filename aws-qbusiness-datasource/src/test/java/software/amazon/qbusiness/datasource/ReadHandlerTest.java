@@ -26,8 +26,9 @@ import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
-import software.amazon.awssdk.services.qbusiness.model.AppliedChatConfiguration;
-import software.amazon.awssdk.services.qbusiness.model.ChatCapacityUnitConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.AppliedAttachmentsConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.AttachmentsControlMode;
+import software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
 import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
@@ -35,9 +36,6 @@ import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
-import software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration;
-import software.amazon.awssdk.services.qbusiness.model.ResponseControlStatus;
-import software.amazon.awssdk.services.qbusiness.model.ServerSideEncryptionConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
@@ -67,7 +65,6 @@ public class ReadHandlerTest extends AbstractTestBase {
 
   private ResourceHandlerRequest<ResourceModel> testRequest;
   private ResourceModel model;
-
 
   @BeforeEach
   public void setup() {
@@ -107,20 +104,13 @@ public class ReadHandlerTest extends AbstractTestBase {
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .description("this is a description, there are many like it but this one is mine.")
-            .name("Foobar")
+            .displayName("Foobar")
             .status(ApplicationStatus.ACTIVE)
-            .capacityUnitConfiguration(ChatCapacityUnitConfiguration.builder()
-                .users(10)
-                .build())
-            .chatConfiguration(AppliedChatConfiguration.builder()
-                .responseConfiguration(ResponseConfiguration.builder()
-                    .blockedPhrases("Guaranteed returns")
-                    .retrievalResponseControlStatus(ResponseControlStatus.ENABLED)
-                    .defaultResponse("Defaulted Response")
-                    .build())
-                .build())
-            .serverSideEncryptionConfiguration(ServerSideEncryptionConfiguration.builder()
+            .encryptionConfiguration(EncryptionConfiguration.builder()
                 .kmsKeyId("keyblade")
+                .build())
+            .attachmentsConfiguration(AppliedAttachmentsConfiguration.builder()
+                .attachmentsControlMode(AttachmentsControlMode.ENABLED)
                 .build())
             .build());
     when(proxyClient.client().listTagsForResource(any(ListTagsForResourceRequest.class)))
@@ -146,22 +136,15 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(responseProgress.getMessage()).isNull();
     assertThat(responseProgress.getErrorCode()).isNull();
     ResourceModel resultModel = responseProgress.getResourceModel();
-    assertThat(resultModel.getName()).isEqualTo("Foobar");
+    assertThat(resultModel.getDisplayName()).isEqualTo("Foobar");
     assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
     assertThat(resultModel.getRoleArn()).isEqualTo("role1");
     assertThat(resultModel.getCreatedAt()).isEqualTo("2023-10-20T18:02:15Z");
     assertThat(resultModel.getUpdatedAt()).isEqualTo("2023-10-20T22:02:15Z");
     assertThat(resultModel.getDescription()).isEqualTo("this is a description, there are many like it but this one is mine.");
     assertThat(resultModel.getStatus()).isEqualTo(ApplicationStatus.ACTIVE.toString());
-    assertThat(resultModel.getCapacityUnitConfiguration().getUsers()).isEqualTo(10);
-    assertThat(resultModel.getChatConfiguration()).isEqualTo(ChatConfiguration.builder()
-        .responseConfiguration(software.amazon.qbusiness.application.ResponseConfiguration.builder()
-            .blockedPhrases(List.of("Guaranteed returns"))
-            .retrievalResponseControlStatus("ENABLED")
-            .defaultResponse("Defaulted Response")
-            .build())
-        .build());
-    assertThat(resultModel.getServerSideEncryptionConfiguration().getKmsKeyId()).isEqualTo("keyblade");
+    assertThat(resultModel.getEncryptionConfiguration().getKmsKeyId()).isEqualTo("keyblade");
+    assertThat(resultModel.getAttachmentsConfiguration().getAttachmentsControlMode()).isEqualTo(AttachmentsControlMode.ENABLED.toString());
 
     var tags = resultModel.getTags().stream().map(tag -> Map.entry(tag.getKey(), tag.getValue())).toList();
     assertThat(tags).isEqualTo(List.of(
@@ -179,9 +162,10 @@ public class ReadHandlerTest extends AbstractTestBase {
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .description("desc")
-            .name("Foobar")
+            .displayName("Foobar")
             .status(ApplicationStatus.ACTIVE)
-            .chatConfiguration(AppliedChatConfiguration.builder()
+            .attachmentsConfiguration(AppliedAttachmentsConfiguration.builder()
+                .attachmentsControlMode(AttachmentsControlMode.ENABLED)
                 .build())
             .build());
 
@@ -200,9 +184,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(responseProgress.getErrorCode()).isNull();
 
     ResourceModel resultModel = responseProgress.getResourceModel();
-    assertThat(resultModel.getChatConfiguration()).isNull();
-    assertThat(resultModel.getServerSideEncryptionConfiguration()).isNull();
-    assertThat(resultModel.getCapacityUnitConfiguration()).isNull();
+    assertThat(resultModel.getEncryptionConfiguration()).isNull();
   }
 
   private static Stream<Arguments> serviceErrorAndExpectedCfnCode() {
@@ -244,7 +226,7 @@ public class ReadHandlerTest extends AbstractTestBase {
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .description("desc")
-            .name("Foobar")
+            .displayName("Foobar")
             .status(ApplicationStatus.ACTIVE)
             .build());
 

@@ -31,6 +31,7 @@ import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
+import software.amazon.awssdk.services.qbusiness.model.AttachmentsControlMode;
 import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
@@ -80,15 +81,15 @@ public class UpdateHandlerTest extends AbstractTestBase {
     underTest = new UpdateHandler(backOffStrategy, tagHelper);
 
     previousModel = ResourceModel.builder()
-        .name("Name of Me")
+        .displayName("Name of Me")
         .applicationId(APP_ID)
         .description("This is a description")
         .createdAt("2023-10-20T18:02:15Z")
         .updatedAt("2023-10-20T22:02:15Z")
         .roleArn("what-a-role")
         .status(ApplicationStatus.ACTIVE.name())
-        .capacityUnitConfiguration(ChatCapacityUnitConfiguration.builder()
-            .users(10D)
+        .attachmentsConfiguration(AttachmentsConfiguration.builder()
+            .attachmentsControlMode(AttachmentsControlMode.DISABLED.toString())
             .build()
         )
         .tags(List.of(
@@ -100,17 +101,13 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
     updateModel = ResourceModel.builder()
         .applicationId(APP_ID)
-        .name("New Phone Who dis")
+        .displayName("New Phone Who dis")
         .description("It's a new description")
         .roleArn("now-better-role")
-        .chatConfiguration(ChatConfiguration.builder()
-            .responseConfiguration(ResponseConfiguration.builder()
-                .defaultResponse("Come in, take a seat by the Hearth!")
-                .build())
-            .build())
-        .capacityUnitConfiguration(ChatCapacityUnitConfiguration.builder()
-            .users(100D)
-            .build())
+        .attachmentsConfiguration(AttachmentsConfiguration.builder()
+            .attachmentsControlMode(AttachmentsControlMode.ENABLED.toString())
+            .build()
+        )
         .tags(List.of(
             Tag.builder().key("remain").value("thesame").build(),
             Tag.builder().key("iwillchange").value("nowanewvalue").build(),
@@ -179,15 +176,12 @@ public class UpdateHandlerTest extends AbstractTestBase {
     verify(sdkClient).updateApplication(updateAppReqCaptor.capture());
     var updateAppRequest = updateAppReqCaptor.getValue();
     assertThat(updateAppRequest.applicationId()).isEqualTo(APP_ID);
-    assertThat(updateAppRequest.name()).isEqualTo("New Phone Who dis");
+    assertThat(updateAppRequest.displayName()).isEqualTo("New Phone Who dis");
     assertThat(updateAppRequest.description()).isEqualTo("It's a new description");
     assertThat(updateAppRequest.roleArn()).isEqualTo("now-better-role");
-    assertThat(updateAppRequest.chatConfiguration()).isEqualTo(software.amazon.awssdk.services.qbusiness.model.ChatConfiguration.builder()
-        .responseConfiguration(software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration.builder()
-            .defaultResponse("Come in, take a seat by the Hearth!")
-            .build())
+    assertThat(updateAppRequest.attachmentsConfiguration()).isEqualTo(software.amazon.awssdk.services.qbusiness.model.AttachmentsConfiguration.builder()
+        .attachmentsControlMode(AttachmentsControlMode.ENABLED)
         .build());
-    assertThat(updateAppRequest.capacityUnitConfiguration().users()).isEqualTo(100);
 
     verify(sdkClient, times(2)).getApplication(
         argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))

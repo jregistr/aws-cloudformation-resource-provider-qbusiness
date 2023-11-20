@@ -21,13 +21,16 @@ public class ListHandler extends BaseHandlerStd {
         final ProxyClient<QBusinessClient> proxyClient,
         final Logger logger) {
 
-        final ListRetrieversRequest awsRequest = Translator.translateToListRequest(request.getNextToken());
+        final ListRetrieversRequest awsRequest = Translator.translateToListRequest(
+            request.getDesiredResourceState(),
+            request.getNextToken()
+        );
 
         ListRetrieversResponse listRetrieversResponse = proxy.injectCredentialsAndInvokeV2(awsRequest, proxyClient.client()::listRetrievers);
 
         String nextToken = listRetrieversResponse.nextToken();
 
-        List<ResourceModel> models = Translator.translateFromListRequest(listRetrieversResponse);
+        List<ResourceModel> models = Translator.translateFromListResponse(listRetrieversResponse);
         return ProgressEvent.<ResourceModel, CallbackContext>builder()
             .resourceModels(models)
             .nextToken(nextToken)

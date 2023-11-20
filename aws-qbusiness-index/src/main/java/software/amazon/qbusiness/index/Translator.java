@@ -44,7 +44,7 @@ public class Translator {
   static CreateIndexRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
     return CreateIndexRequest.builder()
         .clientToken(idempotentToken)
-        .name(model.getName())
+        .displayName(model.getDisplayName())
         .applicationId(model.getApplicationId())
         .description(model.getDescription())
         .capacityUnitConfiguration(toServiceCapacityUnitConfiguration(model.getCapacityUnitConfiguration()))
@@ -88,7 +88,7 @@ public class Translator {
    */
   static ResourceModel translateFromReadResponse(final GetIndexResponse awsResponse) {
     return ResourceModel.builder()
-        .name(awsResponse.name())
+        .displayName(awsResponse.displayName())
         .applicationId(awsResponse.applicationId())
         .indexId(awsResponse.indexId())
         .indexStatistics(fromServiceIndexStatistics(awsResponse.indexStatistics()))
@@ -139,7 +139,7 @@ public class Translator {
    */
   static UpdateIndexRequest translateToUpdateRequest(final ResourceModel model) {
     return UpdateIndexRequest.builder()
-        .name(model.getName())
+        .displayName(model.getDisplayName())
         .applicationId(model.getApplicationId())
         .indexId(model.getIndexId())
         .description(model.getDescription())
@@ -195,39 +195,18 @@ public class Translator {
    * @param applicationId   of the list of indices
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final ListIndicesResponse serviceResponse, final String applicationId) {
-    return serviceResponse.items()
+  static List<ResourceModel> translateFromListResponse(final ListIndicesResponse serviceResponse, final String applicationId) {
+    return serviceResponse.indices()
         .stream()
-        .map(summary -> ResourceModel.builder()
-            .indexId(summary.indexId())
+        .map(index -> ResourceModel.builder()
+            .indexId(index.indexId())
             .applicationId(applicationId)
-            .createdAt(instantToString(summary.createdAt()))
-            .updatedAt(instantToString(summary.updatedAt()))
-            .name(summary.name())
-            .status(summary.statusAsString())
+            .createdAt(instantToString(index.createdAt()))
+            .updatedAt(instantToString(index.updatedAt()))
+            .displayName(index.displayName())
+            .status(index.statusAsString())
             .build())
         .toList();
-  }
-
-  /**
-   * Translates resource objects from sdk into a resource model (primary identifier only)
-   *
-   * @param awsResponse the aws service describe resource response
-   * @return list of resource models
-   */
-  static List<ResourceModel> translateFromListRequest(final AwsResponse awsResponse) {
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L75-L82
-    return streamOfOrEmpty(Lists.newArrayList())
-        .map(resource -> ResourceModel.builder()
-            // include only primary identifier
-            .build())
-        .collect(Collectors.toList());
-  }
-
-  private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
-    return Optional.ofNullable(collection)
-        .map(Collection::stream)
-        .orElseGet(Stream::empty);
   }
 
   /**

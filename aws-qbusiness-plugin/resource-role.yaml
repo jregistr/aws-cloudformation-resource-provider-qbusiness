@@ -38,6 +38,10 @@ Resources:
                 - "qbusiness:TagResource"
                 - "qbusiness:UntagResource"
                 - "qbusiness:UpdateApplication"
+                - "iam:PassRole"
+                - "kms:CreateGrant"
+                - "kms:DescribeKey"
+                - "kms:RetireGrant"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:

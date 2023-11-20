@@ -71,7 +71,7 @@ public class DeleteHandlerTest extends AbstractTestBase {
 
     model = ResourceModel.builder()
         .applicationId(APP_ID)
-        .retrieverType(RETRIEVER_TYPE)
+        .type(RETRIEVER_TYPE)
         .build();
     request = ResourceHandlerRequest.<ResourceModel>builder()
         .awsPartition("aws")

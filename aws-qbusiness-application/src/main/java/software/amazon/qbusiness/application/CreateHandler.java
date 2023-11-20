@@ -1,19 +1,18 @@
 package software.amazon.qbusiness.retriever;
 
+import static software.amazon.qbusiness.retriever.Constants.API_CREATE_RETRIEVER;
+
+import java.time.Duration;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.AddRetrieverRequest;
-import software.amazon.awssdk.services.qbusiness.model.AddRetrieverResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
-
-import java.time.Duration;
-
-import static software.amazon.qbusiness.retriever.Constants.API_CREATE_RETRIEVER;
-
 
 public class CreateHandler extends BaseHandlerStd {
 
@@ -23,9 +22,11 @@ public class CreateHandler extends BaseHandlerStd {
       .build();
   private final Constant backOffStrategy;
   private Logger logger;
+
   public CreateHandler() {
     this(DEFAULT_BACK_OFF_STRATEGY);
   }
+
   public CreateHandler(Constant backOffStrategy) {
     this.backOffStrategy = backOffStrategy;
   }
@@ -56,10 +57,10 @@ public class CreateHandler extends BaseHandlerStd {
         );
   }
 
-  private AddRetrieverResponse callCreateRetriever(AddRetrieverRequest request,
-                                                   ProxyClient<QBusinessClient> client,
-                                                   ResourceModel model) {
-    AddRetrieverResponse response = client.injectCredentialsAndInvokeV2(request, client.client()::addRetriever);
+  private CreateRetrieverResponse callCreateRetriever(CreateRetrieverRequest request,
+      ProxyClient<QBusinessClient> client,
+      ResourceModel model) {
+    CreateRetrieverResponse response = client.injectCredentialsAndInvokeV2(request, client.client()::createRetriever);
     model.setRetrieverId(response.retrieverId());
     return response;
   }

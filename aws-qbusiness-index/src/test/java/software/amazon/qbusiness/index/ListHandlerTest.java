@@ -1,31 +1,32 @@
 package software.amazon.qbusiness.index;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatcher;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.IndexStatus;
-import software.amazon.awssdk.services.qbusiness.model.IndexSummary;
-import software.amazon.awssdk.services.qbusiness.model.ListIndicesRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListIndicesResponse;
-import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
-import software.amazon.cloudformation.proxy.ProgressEvent;
-import software.amazon.cloudformation.proxy.ProxyClient;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatcher;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.Index;
+import software.amazon.awssdk.services.qbusiness.model.IndexStatus;
+import software.amazon.awssdk.services.qbusiness.model.ListIndicesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListIndicesResponse;
+import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
+import software.amazon.cloudformation.proxy.ProgressEvent;
+import software.amazon.cloudformation.proxy.ProxyClient;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class ListHandlerTest extends AbstractTestBase {
 
@@ -78,18 +79,18 @@ public class ListHandlerTest extends AbstractTestBase {
         "db6a3cc2-3de5-4ede-b802-80f107d63ad8",
         "25e148e0-777d-4f30-b523-1f895c36cf55"
     );
-    var listIndexSummaries = ids.stream()
-        .map(id -> IndexSummary.builder()
+    var listIndices = ids.stream()
+        .map(id -> Index.builder()
             .indexId(id)
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
-            .name("Index name")
+            .displayName("Index name")
             .status(IndexStatus.ACTIVE)
             .build()
         ).toList();
     when(sdkClient.listIndices(any(ListIndicesRequest.class)))
         .thenReturn(ListIndicesResponse.builder()
-            .items(listIndexSummaries)
+            .indices(listIndices)
             .build()
         );
 

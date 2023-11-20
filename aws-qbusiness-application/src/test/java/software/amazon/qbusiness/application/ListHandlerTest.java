@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.datasource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,7 +18,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.DataSourceSummary;
+import software.amazon.awssdk.services.qbusiness.model.DataSource;
 import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
@@ -80,8 +80,8 @@ public class ListHandlerTest extends AbstractTestBase {
     when(sdkClient.listDataSources(any(ListDataSourcesRequest.class)))
         .thenReturn(ListDataSourcesResponse.builder()
             .nextToken("some-other-token")
-            .summaryItems(dataSourceIds.stream()
-                .map(id -> DataSourceSummary.builder()
+            .dataSources(dataSourceIds.stream()
+                .map(id -> DataSource.builder()
                     .dataSourceId(id)
                     .build()
                 )

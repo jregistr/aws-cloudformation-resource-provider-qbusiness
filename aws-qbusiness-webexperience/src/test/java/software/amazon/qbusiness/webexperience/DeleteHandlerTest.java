@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.webexperience;
+package software.amazon.qbusiness.datasource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,13 +26,18 @@ import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
 import software.amazon.awssdk.services.qbusiness.model.DataSourceStatus;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceSyncJob;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceSyncJobStatus;
 import software.amazon.awssdk.services.qbusiness.model.DeleteDataSourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteDataSourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
 import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourceSyncJobsRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourceSyncJobsResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
+import software.amazon.awssdk.services.qbusiness.model.StopDataSourceSyncJobRequest;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
@@ -62,16 +67,19 @@ public class DeleteHandlerTest extends AbstractTestBase {
   private ResourceHandlerRequest<ResourceModel> testRequest;
   private ResourceModel toDeleteModel;
 
+  private GetDataSourceResponse simpleGetResource;
+
   @BeforeEach
   public void setup() {
     testMocks = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
     proxyClient = MOCK_PROXY(proxy, sdkClient);
 
-    underTest = new DeleteHandler(Constant.of()
+    var backOffStrategy = Constant.of()
         .timeout(Duration.ofSeconds(60))
         .delay(Duration.ofSeconds(2))
-        .build());
+        .build();
+    underTest = new DeleteHandler(backOffStrategy, backOffStrategy);
 
     toDeleteModel = ResourceModel.builder()
         .applicationId(APP_ID)
@@ -84,6 +92,13 @@ public class DeleteHandlerTest extends AbstractTestBase {
         .awsPartition("aws")
         .region("us-east-1")
         .stackId("Stack1")
+        .build();
+
+    simpleGetResource = GetDataSourceResponse.builder()
+        .applicationId(APP_ID)
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
+        .status(DataSourceStatus.ACTIVE)
         .build();
   }
 
@@ -99,7 +114,11 @@ public class DeleteHandlerTest extends AbstractTestBase {
   public void handleRequest_SimpleSuccess() {
     // set up test
     when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
-    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource)
+        .thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class)))
+        .thenReturn(ListDataSourceSyncJobsResponse.builder().build());
 
     // call the method under test
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
@@ -117,9 +136,200 @@ public class DeleteHandlerTest extends AbstractTestBase {
         (ArgumentMatcher<DeleteDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
     ));
 
-    verify(sdkClient).getDataSource(argThat(
+    verify(sdkClient, times(2)).getDataSource(argThat(
         (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
     ));
+
+    verify(sdkClient).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
+  }
+
+  @Test
+  public void testThatItDoesSimpleDeleteAndStabilizeIfNoneOfTheSyncJobsAreInProgress() {
+    // set up test
+    when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource)
+        .thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class)))
+        .thenReturn(ListDataSourceSyncJobsResponse.builder()
+            .history(
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.FAILED)
+                    .build(),
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.ABORTED)
+                    .build(),
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.INCOMPLETE)
+                    .build(),
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.SYNCING_INDEXING)
+                    .build(),
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.SUCCEEDED)
+                    .build()
+            )
+            .build());
+
+    // call the method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    assertThat(resultProgress.getResourceModel()).isNull();
+    assertThat(resultProgress.getResourceModels()).isNull();
+    assertThat(resultProgress.getErrorCode()).isNull();
+
+    verify(sdkClient).deleteDataSource(argThat(
+        (ArgumentMatcher<DeleteDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient, times(2)).getDataSource(argThat(
+        (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
+  }
+
+  @Test
+  public void testThatItSkipsSyncingChecksIfDataSourceHasFailStatus() {
+    // set up
+    when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource.toBuilder().status(DataSourceStatus.FAILED).build())
+        .thenThrow(ResourceNotFoundException.builder().build());
+
+    // call the method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    assertThat(resultProgress.getResourceModel()).isNull();
+    assertThat(resultProgress.getResourceModels()).isNull();
+    assertThat(resultProgress.getErrorCode()).isNull();
+
+    verify(sdkClient).deleteDataSource(argThat(
+        (ArgumentMatcher<DeleteDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient, times(2)).getDataSource(argThat(
+        (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+  }
+
+  @Test
+  public void testThatItChecksListDataSourceMultipleTimesIfThereIsDataSourceInStoppingAtTimeOfDelete() {
+    // set up
+    when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource)
+        .thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class)))
+        .thenReturn(ListDataSourceSyncJobsResponse.builder()
+            .history(
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.STOPPING)
+                    .build()
+            )
+            .build()
+        )
+        .thenReturn(
+            ListDataSourceSyncJobsResponse.builder()
+                .history(
+                    DataSourceSyncJob.builder()
+                        .status(DataSourceSyncJobStatus.ABORTED)
+                        .build()
+                )
+                .build()
+        );
+
+    // call the method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    assertThat(resultProgress.getResourceModel()).isNull();
+    assertThat(resultProgress.getResourceModels()).isNull();
+    assertThat(resultProgress.getErrorCode()).isNull();
+
+    verify(sdkClient).deleteDataSource(argThat(
+        (ArgumentMatcher<DeleteDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient, times(2)).getDataSource(argThat(
+        (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient, times(2)).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
+  }
+
+  @Test
+  public void testThatItCallsStopDataSourceAndThenListsJobsIfDataSourceIsSyncingAtTimeOfDelete() {
+    // set up
+    when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource)
+        .thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class)))
+        .thenReturn(ListDataSourceSyncJobsResponse.builder()
+            .history(
+                DataSourceSyncJob.builder()
+                    .status(DataSourceSyncJobStatus.SYNCING)
+                    .build()
+            )
+            .build()
+        )
+        .thenReturn(
+            ListDataSourceSyncJobsResponse.builder()
+                .history(
+                    DataSourceSyncJob.builder()
+                        .status(DataSourceSyncJobStatus.STOPPING)
+                        .build()
+                )
+                .build()
+        )
+        .thenReturn(
+            ListDataSourceSyncJobsResponse.builder()
+                .history(
+                    DataSourceSyncJob.builder()
+                        .status(DataSourceSyncJobStatus.ABORTED)
+                        .build()
+                )
+                .build()
+        );
+
+    // call the method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    assertThat(resultProgress.getResourceModel()).isNull();
+    assertThat(resultProgress.getResourceModels()).isNull();
+    assertThat(resultProgress.getErrorCode()).isNull();
+
+    verify(sdkClient).deleteDataSource(argThat(
+        (ArgumentMatcher<DeleteDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient, times(2)).getDataSource(argThat(
+        (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+
+    verify(sdkClient).stopDataSourceSyncJob(any(StopDataSourceSyncJobRequest.class));
+
+    verify(sdkClient, times(3)).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
   }
 
   @Test
@@ -127,15 +337,15 @@ public class DeleteHandlerTest extends AbstractTestBase {
     // set up test
     when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
     when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource)
         .thenReturn(
-            GetDataSourceResponse.builder()
-                .applicationId(APP_ID)
-                .indexId(INDEX_ID)
-                .dataSourceId(DATA_SOURCE_ID)
+            simpleGetResource.toBuilder()
                 .status(DataSourceStatus.DELETING)
                 .build()
         )
         .thenThrow(ResourceNotFoundException.builder().build());
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class)))
+        .thenReturn(ListDataSourceSyncJobsResponse.builder().build());
 
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
@@ -152,9 +362,10 @@ public class DeleteHandlerTest extends AbstractTestBase {
         (ArgumentMatcher<DeleteDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
     ));
 
-    verify(sdkClient, times(2)).getDataSource(argThat(
+    verify(sdkClient, times(3)).getDataSource(argThat(
         (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
     ));
+    verify(sdkClient).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
   }
 
   private static Stream<Arguments> stabilizeServiceErrors() {
@@ -176,12 +387,39 @@ public class DeleteHandlerTest extends AbstractTestBase {
 
   @ParameterizedTest
   @MethodSource("serviceErrorsAndHandlerCodes")
-  public void testThatItReturnsExpectedCfnErrorCodeForCreateFailures(
+  public void testThatItReturnsExpectedCfnErrorCodeForInitialGetDataSourceFailures(
       QBusinessException serviceError,
       HandlerErrorCode expectedCfnErrorCode
   ) {
     // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenThrow(serviceError);
+
+    // call method under test
+    final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(responseProgress).isNotNull();
+    assertThat(responseProgress.isSuccess()).isFalse();
+    assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
+    verify(sdkClient).getDataSource(any(GetDataSourceRequest.class));
+    assertThat(responseProgress.getErrorCode()).isEqualTo(expectedCfnErrorCode);
+  }
+
+  @ParameterizedTest
+  @MethodSource("serviceErrorsAndHandlerCodes")
+  public void testThatItReturnsExpectedCfnErrorCodeForDeleteFailures(
+      QBusinessException serviceError,
+      HandlerErrorCode expectedCfnErrorCode
+  ) {
+    // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenReturn(simpleGetResource);
     when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenThrow(serviceError);
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class))).thenReturn(
+        ListDataSourceSyncJobsResponse.builder()
+            .build()
+    );
 
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
@@ -193,6 +431,8 @@ public class DeleteHandlerTest extends AbstractTestBase {
     assertThat(responseProgress.isSuccess()).isFalse();
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
     verify(sdkClient).deleteDataSource(any(DeleteDataSourceRequest.class));
+    verify(sdkClient).getDataSource(any(GetDataSourceRequest.class));
+    verify(sdkClient).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(expectedCfnErrorCode);
   }
 
@@ -203,8 +443,14 @@ public class DeleteHandlerTest extends AbstractTestBase {
       HandlerErrorCode expectedCfnErrorCode
   ) {
     // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(simpleGetResource)
+        .thenThrow(serviceError);
     when(sdkClient.deleteDataSource(any(DeleteDataSourceRequest.class))).thenReturn(DeleteDataSourceResponse.builder().build());
-    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenThrow(serviceError);
+    when(sdkClient.listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class))).thenReturn(
+        ListDataSourceSyncJobsResponse.builder()
+            .build()
+    );
 
     // call method under test & verify
     final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
@@ -218,6 +464,7 @@ public class DeleteHandlerTest extends AbstractTestBase {
     assertThat(responseProgress.getErrorCode()).isEqualTo(expectedCfnErrorCode);
 
     verify(sdkClient).deleteDataSource(any(DeleteDataSourceRequest.class));
-    verify(sdkClient).getDataSource(any(GetDataSourceRequest.class));
+    verify(sdkClient, times(2)).getDataSource(any(GetDataSourceRequest.class));
+    verify(sdkClient).listDataSourceSyncJobs(any(ListDataSourceSyncJobsRequest.class));
   }
 }

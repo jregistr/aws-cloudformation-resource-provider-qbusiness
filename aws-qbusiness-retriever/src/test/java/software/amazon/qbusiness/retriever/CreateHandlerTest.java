@@ -1,5 +1,19 @@
 package software.amazon.qbusiness.retriever;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,12 +22,12 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
-import software.amazon.awssdk.services.qbusiness.model.AddRetrieverRequest;
-import software.amazon.awssdk.services.qbusiness.model.AddRetrieverResponse;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
-import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverResponse;
 import software.amazon.awssdk.services.qbusiness.model.DocumentRelevanceOverrideConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverRequest;
@@ -35,20 +49,6 @@ import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 public class CreateHandlerTest extends AbstractTestBase {
   private static final String APP_ID = "ApplicationId";
@@ -111,9 +111,9 @@ public class CreateHandlerTest extends AbstractTestBase {
 
     model = ResourceModel.builder()
         .applicationId(APP_ID)
-        .retrieverType(RETRIEVER_TYPE)
-        .retrieverName(RETRIEVER_NAME)
-        .retrieverConfiguration(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration))
+        .type(RETRIEVER_TYPE)
+        .displayName(RETRIEVER_NAME)
+        .configuration(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration))
         .roleArn(ROLE_ARN)
         .build();
     request = ResourceHandlerRequest.<ResourceModel>builder()
@@ -134,18 +134,18 @@ public class CreateHandlerTest extends AbstractTestBase {
 
   @Test
   public void handleRequest_SimpleSuccess() {
-    when(proxyClient.client().addRetriever(any(AddRetrieverRequest.class)))
-        .thenReturn(AddRetrieverResponse.builder()
+    when(proxyClient.client().createRetriever(any(CreateRetrieverRequest.class)))
+        .thenReturn(CreateRetrieverResponse.builder()
             .retrieverId(RETRIEVER_ID)
             .build());
     when(proxyClient.client().getRetriever(any(GetRetrieverRequest.class)))
         .thenReturn(GetRetrieverResponse.builder()
             .applicationId(APP_ID)
             .retrieverId(RETRIEVER_ID)
-            .retrieverName(RETRIEVER_NAME)
-            .retrieverType(RETRIEVER_TYPE)
-            .retrieverState(RETRIEVER_STATE)
-            .retrieverConfiguration(retrieverConfiguration)
+            .displayName(RETRIEVER_NAME)
+            .type(RETRIEVER_TYPE)
+            .state(RETRIEVER_STATE)
+            .configuration(retrieverConfiguration)
             .roleArn(ROLE_ARN)
             .createdAt(Instant.ofEpochMilli(CREATED_TIME))
             .updatedAt(Instant.ofEpochMilli(UPDATED_TIME))
@@ -160,7 +160,7 @@ public class CreateHandlerTest extends AbstractTestBase {
 
     final ProgressEvent<ResourceModel, CallbackContext> response = underTest.handleRequest(proxy, request, new CallbackContext(), proxyClient, logger);
 
-    verify(sdkClient).addRetriever(any(AddRetrieverRequest.class));
+    verify(sdkClient).createRetriever(any(CreateRetrieverRequest.class));
     verify(sdkClient).getRetriever(any(GetRetrieverRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
@@ -175,10 +175,10 @@ public class CreateHandlerTest extends AbstractTestBase {
 
     assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
     assertThat(resultModel.getRetrieverId()).isEqualTo(RETRIEVER_ID);
-    assertThat(resultModel.getRetrieverType()).isEqualTo(RETRIEVER_TYPE);
-    assertThat(resultModel.getRetrieverState()).isEqualTo(RETRIEVER_STATE);
-    assertThat(resultModel.getRetrieverName()).isEqualTo(RETRIEVER_NAME);
-    assertThat(resultModel.getRetrieverConfiguration()).isEqualTo(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration));
+    assertThat(resultModel.getType()).isEqualTo(RETRIEVER_TYPE);
+    assertThat(resultModel.getState()).isEqualTo(RETRIEVER_STATE);
+    assertThat(resultModel.getDisplayName()).isEqualTo(RETRIEVER_NAME);
+    assertThat(resultModel.getConfiguration()).isEqualTo(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration));
     assertThat(resultModel.getRoleArn()).isEqualTo(ROLE_ARN);
     assertThat(resultModel.getCreatedAt()).isEqualTo(Instant.ofEpochMilli(CREATED_TIME).toString());
     assertThat(resultModel.getUpdatedAt()).isEqualTo(Instant.ofEpochMilli(UPDATED_TIME).toString());
@@ -203,7 +203,7 @@ public class CreateHandlerTest extends AbstractTestBase {
   @ParameterizedTest
   @MethodSource("serviceErrorAndExpectedCfnCode")
   public void testThatItReturnsExpectedErrorCode(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
-    when(proxyClient.client().addRetriever(any(AddRetrieverRequest.class)))
+    when(proxyClient.client().createRetriever(any(CreateRetrieverRequest.class)))
         .thenThrow(serviceError);
 
     // call method under test
@@ -212,7 +212,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     );
 
     // verify
-    verify(sdkClient).addRetriever(any(AddRetrieverRequest.class));
+    verify(sdkClient).createRetriever(any(CreateRetrieverRequest.class));
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();

@@ -9,5 +9,7 @@ public final class Constants {
   public static final String API_DELETE_RETRIEVER = "DeleteRetriever";
   public static final String API_UPDATE_RETRIEVER = "UpdateRetriever";
   public static final String SERVICE_NAME_LOWER = SERVICE_NAME.toLowerCase(Locale.ENGLISH);
+  public static final String ENV_AWS_REGION = "AWS_REGION";
+
   private Constants() {}
 }

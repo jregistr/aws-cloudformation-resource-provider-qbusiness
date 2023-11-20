@@ -90,7 +90,7 @@ public class CreateHandlerTest extends AbstractTestBase {
         .applicationId(APP_ID)
         .indexId(INDEX_ID)
         .dataSourceId(DATA_SOURCE_ID)
-        .name("Name Name")
+        .displayName("Name Name")
         .description("We are groot")
         .roleArn("roleyroley")
         .schedule("0 11 * * 4")

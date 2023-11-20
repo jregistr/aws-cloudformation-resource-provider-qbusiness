@@ -92,7 +92,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .indexId(INDEX_ID)
         .dataSourceId(DATA_SOURCE_ID)
         .schedule("0 11 * * 4")
-        .name("oldname")
+        .displayName("oldname")
         .description("old desc")
         .roleArn("old role")
         .configuration(DataSourceConfiguration.builder()
@@ -118,7 +118,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .indexId(INDEX_ID)
         .dataSourceId(DATA_SOURCE_ID)
         .schedule("0 12 * * 1")
-        .name("new-name")
+        .displayName("new-name")
         .description("new desc")
         .roleArn("new role")
         .configuration(DataSourceConfiguration.builder()
@@ -226,7 +226,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
     var updateReqArgument = updateReqCaptor.getValue();
     assertThat(updateReqArgument.schedule()).isEqualTo(updateModel.getSchedule());
-    assertThat(updateReqArgument.name()).isEqualTo(updateModel.getName());
+    assertThat(updateReqArgument.displayName()).isEqualTo(updateModel.getDisplayName());
     assertThat(updateReqArgument.description()).isEqualTo(updateModel.getDescription());
     assertThat(updateReqArgument.roleArn()).isEqualTo(updateModel.getRoleArn());
 

@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.datasource;
+package software.amazon.qbusiness.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,7 +18,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ApplicationSummary;
+//import software.amazon.awssdk.services.qbusiness.model.ApplicationSummary;
+import software.amazon.awssdk.services.qbusiness.model.Application;
 import software.amazon.awssdk.services.qbusiness.model.ListApplicationsRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListApplicationsResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
@@ -68,13 +69,13 @@ public class ListHandlerTest extends AbstractTestBase {
         "25e148e0-777d-4f30-b523-1f895c36cf55"
     );
     var listApplicationSummaries = ids.stream()
-        .map(id -> ApplicationSummary.builder()
+        .map(id -> Application.builder()
             .applicationId(id)
             .build()
         ).toList();
     when(sdkClient.listApplications(any(ListApplicationsRequest.class)))
         .thenReturn(ListApplicationsResponse.builder()
-            .items(listApplicationSummaries)
+            .applications(listApplicationSummaries)
             .build()
         );
 

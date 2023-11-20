@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.retriever;
+package software.amazon.qbusiness.webexperience;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,9 +9,8 @@ import org.mockito.MockitoAnnotations;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesResponse;
-import software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig;
+import software.amazon.awssdk.services.qbusiness.model.WebExperience;
 import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
-import software.amazon.awssdk.services.qbusiness.model.WebExperienceSummary;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
@@ -80,20 +79,17 @@ public class ListHandlerTest extends AbstractTestBase {
         "25e148e0-777d-4f30-b523-1f895c36cf55"
     );
     var listWebExperienceSummaries = ids.stream()
-        .map(id -> WebExperienceSummary.builder()
-            .id(id)
+        .map(id -> WebExperience.builder()
+            .webExperienceId(id)
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
-            .endpoints(List.of(WebExperienceEndpointConfig.builder()
-                .endpoint("Endpoint")
-                .type("Type")
-                .build()))
+            .defaultEndpoint("Endpoint")
             .status(WebExperienceStatus.ACTIVE)
             .build()
         ).toList();
     when(sdkClient.listWebExperiences(any(ListWebExperiencesRequest.class)))
         .thenReturn(ListWebExperiencesResponse.builder()
-            .summaryItems(listWebExperienceSummaries)
+            .webExperiences(listWebExperienceSummaries)
             .build()
         );
 

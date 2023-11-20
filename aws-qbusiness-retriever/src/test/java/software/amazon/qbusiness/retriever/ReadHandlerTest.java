@@ -124,10 +124,10 @@ public class ReadHandlerTest extends AbstractTestBase {
         .thenReturn(GetRetrieverResponse.builder()
             .applicationId(APP_ID)
             .retrieverId(RETRIEVER_ID)
-            .retrieverName(RETRIEVER_NAME)
-            .retrieverType(RETRIEVER_TYPE)
-            .retrieverState(RETRIEVER_STATE)
-            .retrieverConfiguration(retrieverConfiguration)
+            .displayName(RETRIEVER_NAME)
+            .type(RETRIEVER_TYPE)
+            .state(RETRIEVER_STATE)
+            .configuration(retrieverConfiguration)
             .roleArn(ROLE_ARN)
             .createdAt(Instant.ofEpochMilli(CREATED_TIME))
             .updatedAt(Instant.ofEpochMilli(UPDATED_TIME))
@@ -156,10 +156,10 @@ public class ReadHandlerTest extends AbstractTestBase {
 
     assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
     assertThat(resultModel.getRetrieverId()).isEqualTo(RETRIEVER_ID);
-    assertThat(resultModel.getRetrieverType()).isEqualTo(RETRIEVER_TYPE);
-    assertThat(resultModel.getRetrieverState()).isEqualTo(RETRIEVER_STATE);
-    assertThat(resultModel.getRetrieverName()).isEqualTo(RETRIEVER_NAME);
-    assertThat(resultModel.getRetrieverConfiguration()).isEqualTo(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration));
+    assertThat(resultModel.getType()).isEqualTo(RETRIEVER_TYPE);
+    assertThat(resultModel.getState()).isEqualTo(RETRIEVER_STATE);
+    assertThat(resultModel.getDisplayName()).isEqualTo(RETRIEVER_NAME);
+    assertThat(resultModel.getConfiguration()).isEqualTo(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration));
     assertThat(resultModel.getRoleArn()).isEqualTo(ROLE_ARN);
     assertThat(resultModel.getCreatedAt()).isEqualTo(Instant.ofEpochMilli(CREATED_TIME).toString());
     assertThat(resultModel.getUpdatedAt()).isEqualTo(Instant.ofEpochMilli(UPDATED_TIME).toString());
@@ -176,10 +176,10 @@ public class ReadHandlerTest extends AbstractTestBase {
         .thenReturn(GetRetrieverResponse.builder()
             .applicationId(APP_ID)
             .retrieverId(RETRIEVER_ID)
-            .retrieverName(RETRIEVER_NAME)
-            .retrieverType(RETRIEVER_TYPE)
-            .retrieverState(RETRIEVER_STATE)
-            .retrieverConfiguration(retrieverConfiguration)
+            .displayName(RETRIEVER_NAME)
+            .type(RETRIEVER_TYPE)
+            .state(RETRIEVER_STATE)
+            .configuration(retrieverConfiguration)
             .roleArn(ROLE_ARN)
             .createdAt(Instant.ofEpochMilli(CREATED_TIME))
             .updatedAt(Instant.ofEpochMilli(UPDATED_TIME))
@@ -201,10 +201,10 @@ public class ReadHandlerTest extends AbstractTestBase {
 
     assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
     assertThat(resultModel.getRetrieverId()).isEqualTo(RETRIEVER_ID);
-    assertThat(resultModel.getRetrieverType()).isEqualTo(RETRIEVER_TYPE);
-    assertThat(resultModel.getRetrieverState()).isEqualTo(RETRIEVER_STATE);
-    assertThat(resultModel.getRetrieverName()).isEqualTo(RETRIEVER_NAME);
-    assertThat(resultModel.getRetrieverConfiguration()).isEqualTo(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration));
+    assertThat(resultModel.getType()).isEqualTo(RETRIEVER_TYPE);
+    assertThat(resultModel.getState()).isEqualTo(RETRIEVER_STATE);
+    assertThat(resultModel.getDisplayName()).isEqualTo(RETRIEVER_NAME);
+    assertThat(resultModel.getConfiguration()).isEqualTo(Translator.fromServiceRetrieverConfiguration(retrieverConfiguration));
     assertThat(resultModel.getRoleArn()).isEqualTo(ROLE_ARN);
     assertThat(resultModel.getCreatedAt()).isEqualTo(Instant.ofEpochMilli(CREATED_TIME).toString());
     assertThat(resultModel.getUpdatedAt()).isEqualTo(Instant.ofEpochMilli(UPDATED_TIME).toString());
@@ -246,10 +246,10 @@ public class ReadHandlerTest extends AbstractTestBase {
         .thenReturn(GetRetrieverResponse.builder()
             .applicationId(APP_ID)
             .retrieverId(RETRIEVER_ID)
-            .retrieverName(RETRIEVER_NAME)
-            .retrieverType(RETRIEVER_TYPE)
-            .retrieverState(RETRIEVER_STATE)
-            .retrieverConfiguration(retrieverConfiguration)
+            .displayName(RETRIEVER_NAME)
+            .type(RETRIEVER_TYPE)
+            .state(RETRIEVER_STATE)
+            .configuration(retrieverConfiguration)
             .roleArn(ROLE_ARN)
             .createdAt(Instant.ofEpochMilli(CREATED_TIME))
             .updatedAt(Instant.ofEpochMilli(UPDATED_TIME))

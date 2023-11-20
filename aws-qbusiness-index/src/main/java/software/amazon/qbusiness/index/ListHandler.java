@@ -35,7 +35,7 @@ public class ListHandler extends BaseHandlerStd {
 
     final String nextToken = listIndicesResponse.nextToken();
 
-    final List<ResourceModel> models = Translator.translateFromListRequest(listIndicesResponse, request.getDesiredResourceState().getApplicationId());
+    final List<ResourceModel> models = Translator.translateFromListResponse(listIndicesResponse, request.getDesiredResourceState().getApplicationId());
 
     return ProgressEvent.<ResourceModel, CallbackContext>builder()
         .resourceModels(models)

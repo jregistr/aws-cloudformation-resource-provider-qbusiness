@@ -128,8 +128,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     previousModel = ResourceModel.builder()
         .applicationId(APP_ID)
         .retrieverId(RETRIEVER_ID)
-        .retrieverConfiguration(Translator.fromServiceRetrieverConfiguration(previousRetrieverConfiguration))
-        .retrieverName(RETRIEVER_NAME)
+        .configuration(Translator.fromServiceRetrieverConfiguration(previousRetrieverConfiguration))
+        .displayName(RETRIEVER_NAME)
         .roleArn(ROLE_ARN)
         .tags(List.of(
             Tag.builder().key("remain").value("thesame").build(),
@@ -141,8 +141,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     updatedModel = ResourceModel.builder()
         .applicationId(APP_ID)
         .retrieverId(RETRIEVER_ID)
-        .retrieverConfiguration(Translator.fromServiceRetrieverConfiguration(updatedRetrieverConfiguration))
-        .retrieverName(RETRIEVER_NAME)
+        .configuration(Translator.fromServiceRetrieverConfiguration(updatedRetrieverConfiguration))
+        .displayName(RETRIEVER_NAME)
         .roleArn(ROLE_ARN)
         .tags(List.of(
             Tag.builder().key("remain").value("thesame").build(),
@@ -211,8 +211,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     var updateRetrieverRequest = updateRetrieverReqCaptor.getValue();
     assertThat(updateRetrieverRequest.applicationId()).isEqualTo(APP_ID);
     assertThat(updateRetrieverRequest.retrieverId()).isEqualTo(RETRIEVER_ID);
-    assertThat(updateRetrieverRequest.retrieverConfiguration()).isEqualTo(Translator.toServiceRetrieverConfiguration(updatedModel.getRetrieverConfiguration()));
-    assertThat(updateRetrieverRequest.retrieverName()).isEqualTo(RETRIEVER_NAME);
+    assertThat(updateRetrieverRequest.configuration()).isEqualTo(Translator.toServiceRetrieverConfiguration(updatedModel.getConfiguration()));
+    assertThat(updateRetrieverRequest.displayName()).isEqualTo(RETRIEVER_NAME);
     assertThat(updateRetrieverRequest.roleArn()).isEqualTo(ROLE_ARN);
 
     verify(sdkClient).getRetriever(

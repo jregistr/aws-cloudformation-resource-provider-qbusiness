@@ -1,5 +1,23 @@
 package software.amazon.qbusiness.index;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +28,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AttributeType;
 import software.amazon.awssdk.services.qbusiness.model.GetIndexRequest;
@@ -29,24 +48,6 @@ import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 public class UpdateHandlerTest extends AbstractTestBase {
 
@@ -83,7 +84,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
     underTest = new UpdateHandler(backOffStrategy, tagHelper);
 
     previousModel = ResourceModel.builder()
-        .name("Old name")
+        .displayName("Old name")
         .applicationId(APP_ID)
         .indexId(INDEX_ID)
         .description("This is an old description")
@@ -110,7 +111,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .build();
 
     updateModel = ResourceModel.builder()
-        .name("New name")
+        .displayName("New name")
         .applicationId(APP_ID)
         .indexId(INDEX_ID)
         .description("This is a new description")
@@ -192,7 +193,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
     var updateAppRequest = updateAppReqCaptor.getValue();
     assertThat(updateAppRequest.applicationId()).isEqualTo(APP_ID);
     assertThat(updateAppRequest.indexId()).isEqualTo(INDEX_ID);
-    assertThat(updateAppRequest.name()).isEqualTo("New name");
+    assertThat(updateAppRequest.displayName()).isEqualTo("New name");
     assertThat(updateAppRequest.description()).isEqualTo("This is a new description");
     assertThat(updateAppRequest.documentAttributeConfigurations().size()).isEqualTo(1);
     assertThat(updateAppRequest.documentAttributeConfigurations().get(0).name()).isEqualTo("DocumentAttributeName2");

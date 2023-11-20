@@ -1,22 +1,4 @@
-package software.amazon.qbusiness.plugin;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatcher;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ListRetrieversRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListRetrieversResponse;
-import software.amazon.awssdk.services.qbusiness.model.RetrieverSummary;
-import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
-import software.amazon.cloudformation.proxy.ProgressEvent;
-import software.amazon.cloudformation.proxy.ProxyClient;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import java.time.Duration;
-import java.util.List;
+package software.amazon.qbusiness.retriever;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,6 +9,25 @@ import static org.mockito.Mockito.when;
 import static software.amazon.qbusiness.retriever.AbstractTestBase.MOCK_CREDENTIALS;
 import static software.amazon.qbusiness.retriever.AbstractTestBase.MOCK_PROXY;
 import static software.amazon.qbusiness.retriever.AbstractTestBase.logger;
+
+import java.time.Duration;
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatcher;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.ListRetrieversRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListRetrieversResponse;
+import software.amazon.awssdk.services.qbusiness.model.Retriever;
+import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
+import software.amazon.cloudformation.proxy.ProgressEvent;
+import software.amazon.cloudformation.proxy.ProxyClient;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class ListHandlerTest {
     private static final String APP_ID = "ApplicationId";
@@ -52,6 +53,9 @@ public class ListHandlerTest {
 
         underTest = new ListHandler();
         testRequest = ResourceHandlerRequest.<ResourceModel>builder()
+            .desiredResourceState(ResourceModel.builder()
+                .applicationId(APP_ID)
+                .build())
             .nextToken(TEST_NEXT_TOKEN)
             .build();
     }
@@ -70,14 +74,14 @@ public class ListHandlerTest {
             "25e148e0-777d-4f30-b523-1f895c36cf55"
         );
         var listRetrieverSummaries = ids.stream()
-            .map(id -> RetrieverSummary.builder()
+            .map(id -> Retriever.builder()
                 .applicationId(APP_ID)
                 .retrieverId(id)
                 .build()
             ).toList();
         when(sdkClient.listRetrievers(any(ListRetrieversRequest.class)))
             .thenReturn(ListRetrieversResponse.builder()
-                .summaryItems(listRetrieverSummaries)
+                .retrievers(listRetrieverSummaries)
                 .build()
             );
 
@@ -100,7 +104,8 @@ public class ListHandlerTest {
         assertThat(modelRetrieverIds).isEqualTo(ids);
 
         verify(sdkClient).listRetrievers(
-            argThat((ArgumentMatcher<ListRetrieversRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN))
+            argThat((ArgumentMatcher<ListRetrieversRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN) &&
+                t.applicationId().equals(APP_ID))
         );
     }
 }

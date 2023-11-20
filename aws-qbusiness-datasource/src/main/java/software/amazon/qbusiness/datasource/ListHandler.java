@@ -28,7 +28,7 @@ public class ListHandler extends BaseHandlerStd {
 
     String nextToken = listApplicationsResponse.nextToken();
 
-    List<ResourceModel> models = Translator.translateFromListRequest(listApplicationsResponse);
+    List<ResourceModel> models = Translator.translateFromListResponse(listApplicationsResponse);
     return ProgressEvent.<ResourceModel, CallbackContext>builder()
         .resourceModels(models)
         .nextToken(nextToken)

@@ -12,7 +12,6 @@ import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
-import software.amazon.awssdk.services.qbusiness.model.ResourceAlreadyExistException;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.ServiceQuotaExceededException;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
@@ -20,7 +19,6 @@ import software.amazon.awssdk.services.qbusiness.model.ValidationException;
 import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.cloudformation.exceptions.BaseHandlerException;
 import software.amazon.cloudformation.exceptions.CfnAccessDeniedException;
-import software.amazon.cloudformation.exceptions.CfnAlreadyExistsException;
 import software.amazon.cloudformation.exceptions.CfnGeneralServiceException;
 import software.amazon.cloudformation.exceptions.CfnInvalidRequestException;
 import software.amazon.cloudformation.exceptions.CfnNotFoundException;
@@ -100,8 +98,6 @@ public abstract class BaseHandlerStd extends BaseHandler<CallbackContext> {
       cfnException = new CfnResourceConflictException(error);
     } else if (error instanceof AccessDeniedException) {
       cfnException = new CfnAccessDeniedException(apiName, error);
-    } else if (error instanceof ResourceAlreadyExistException) {
-      cfnException = new CfnAlreadyExistsException(ResourceModel.TYPE_NAME, primaryIdentifier, error);
     } else if (error instanceof ServiceQuotaExceededException) {
       cfnException = new CfnServiceLimitExceededException(error);
     } else {

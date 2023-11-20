@@ -12,81 +12,26 @@
         "UPDATING"
       ]
     },
-    "ChatCapacityUnitConfiguration": {
+    "AttachmentsConfiguration": {
       "type": "object",
       "properties": {
-        "Users": {
-          "type": "number",
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
-    },
-    "ChatConfiguration": {
-      "type": "object",
-      "properties": {
-        "ResponseConfiguration": {
-          "$ref": "#/definitions/ResponseConfiguration"
-        }
-      },
-      "additionalProperties": false
-    },
-    "ChatContextFilesControlConfiguration": {
-      "type": "object",
-      "properties": {
-        "ChatContextFilesControlMode": {
-          "$ref": "#/definitions/ChatContextFilesControlMode"
+        "AttachmentsControlMode": {
+          "$ref": "#/definitions/AttachmentsControlMode"
         }
       },
       "required": [
-        "ChatContextFilesControlMode"
+        "AttachmentsControlMode"
       ],
       "additionalProperties": false
     },
-    "ChatContextFilesControlMode": {
+    "AttachmentsControlMode": {
       "type": "string",
       "enum": [
         "ENABLED",
         "DISABLED"
       ]
     },
-    "ResponseConfiguration": {
-      "type": "object",
-      "properties": {
-        "RetrievalResponseControlStatus": {
-          "$ref": "#/definitions/ResponseControlStatus"
-        },
-        "BlockedPhrases": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "maxLength": 36,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9' -]+$"
-          },
-          "maxItems": 20,
-          "minItems": 0
-        },
-        "DefaultResponse": {
-          "type": "string",
-          "maxLength": 1000,
-          "minLength": 0,
-          "pattern": "^\\P{C}*$"
-        }
-      },
-      "required": [
-        "RetrievalResponseControlStatus"
-      ],
-      "additionalProperties": false
-    },
-    "ResponseControlStatus": {
-      "type": "string",
-      "enum": [
-        "ENABLED",
-        "DISABLED"
-      ]
-    },
-    "ServerSideEncryptionConfiguration": {
+    "EncryptionConfiguration": {
       "type": "object",
       "properties": {
         "KmsKeyId": {
@@ -125,14 +70,8 @@
       "minLength": 36,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
     },
-    "CapacityUnitConfiguration": {
-      "$ref": "#/definitions/ChatCapacityUnitConfiguration"
-    },
-    "ChatConfiguration": {
-      "$ref": "#/definitions/ChatConfiguration"
-    },
-    "ChatContextFilesControlConfiguration": {
-      "$ref": "#/definitions/ChatContextFilesControlConfiguration"
+    "AttachmentsConfiguration": {
+      "$ref": "#/definitions/AttachmentsConfiguration"
     },
     "CreatedAt": {
       "type": "string",
@@ -144,20 +83,20 @@
       "minLength": 0,
       "pattern": "^\\P{C}*$"
     },
-    "Name": {
+    "DisplayName": {
       "type": "string",
       "maxLength": 1000,
       "minLength": 1,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+    },
+    "EncryptionConfiguration": {
+      "$ref": "#/definitions/EncryptionConfiguration"
     },
     "RoleArn": {
       "type": "string",
       "maxLength": 1284,
       "minLength": 0,
       "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
-    },
-    "ServerSideEncryptionConfiguration": {
-      "$ref": "#/definitions/ServerSideEncryptionConfiguration"
     },
     "Status": {
       "$ref": "#/definitions/ApplicationStatus"
@@ -176,7 +115,7 @@
     }
   },
   "required": [
-    "Name",
+    "DisplayName",
     "RoleArn"
   ],
   "readOnlyProperties": [
@@ -186,7 +125,7 @@
     "/properties/UpdatedAt"
   ],
   "createOnlyProperties": [
-    "/properties/ServerSideEncryptionConfiguration"
+    "/properties/EncryptionConfiguration"
   ],
   "primaryIdentifier": [
     "/properties/ApplicationId"
@@ -197,7 +136,10 @@
         "qbusiness:CreateApplication",
         "qbusiness:GetApplication",
         "qbusiness:ListTagsForResource",
-        "qbusiness:TagResource"
+        "qbusiness:TagResource",
+        "iam:PassRole",
+        "kms:CreateGrant",
+        "kms:DescribeKey"
       ]
     },
     "read": {
@@ -212,13 +154,15 @@
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
-        "qbusiness:UpdateApplication"
+        "qbusiness:UpdateApplication",
+        "iam:PassRole"
       ]
     },
     "delete": {
       "permissions": [
         "qbusiness:DeleteApplication",
-        "qbusiness:GetApplication"
+        "qbusiness:GetApplication",
+        "kms:RetireGrant"
       ]
     },
     "list": {

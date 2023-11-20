@@ -1,5 +1,14 @@
 package software.amazon.qbusiness.webexperience;
 
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceRequest;
@@ -14,16 +23,6 @@ import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * This class is a centralized placeholder for
@@ -46,8 +45,16 @@ public class Translator {
         .applicationId(model.getApplicationId())
         .title(model.getTitle())
         .subtitle(model.getSubtitle())
-        .authenticationConfiguration(toServiceAuthenticationConfiguration(model.getAuthenticationConfiguration()))
+        .welcomeMessage(model.getWelcomeMessage())
         .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
+        .build();
+  }
+
+  static UpdateWebExperienceRequest translateToPostCreateUpdateRequest(final ResourceModel model) {
+    return UpdateWebExperienceRequest.builder()
+        .applicationId(model.getApplicationId())
+        .webExperienceId(model.getWebExperienceId())
+        .authenticationConfiguration(toServiceAuthenticationConfiguration(model.getAuthenticationConfiguration()))
         .build();
   }
 
@@ -92,8 +99,9 @@ public class Translator {
         .status(awsResponse.statusAsString())
         .title(awsResponse.title())
         .subtitle(awsResponse.subtitle())
+        .welcomeMessage(awsResponse.welcomeMessage())
         .authenticationConfiguration(fromServiceAuthenticationConfiguration(awsResponse.authenticationConfiguration()))
-        .endpoints(fromServiceEndpoints(awsResponse.endpoints()))
+        .defaultEndpoint(awsResponse.defaultEndpoint())
         .createdAt(instantToString(awsResponse.createdAt()))
         .updatedAt(instantToString(awsResponse.updatedAt()))
         .build();
@@ -191,16 +199,16 @@ public class Translator {
    * @param applicationId   of the list of indices
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final ListWebExperiencesResponse serviceResponse, final String applicationId) {
-    return serviceResponse.summaryItems()
+  static List<ResourceModel> translateFromListResponse(final ListWebExperiencesResponse serviceResponse, final String applicationId) {
+    return serviceResponse.webExperiences()
         .stream()
         .map(summary -> ResourceModel.builder()
             .applicationId(applicationId)
-            .webExperienceId(summary.id())
+            .webExperienceId(summary.webExperienceId())
             .status(summary.statusAsString())
             .createdAt(instantToString(summary.createdAt()))
             .updatedAt(instantToString(summary.updatedAt()))
-            .endpoints(fromServiceEndpoints(summary.endpoints()))
+            .defaultEndpoint(summary.defaultEndpoint())
             .build())
         .toList();
   }
@@ -272,52 +280,41 @@ public class Translator {
     }
 
     return WebExperienceAuthConfiguration.builder()
-        .samlConfigurationOptions(fromServiceWebExperienceAuthConfiguration(webExperienceAuthConfiguration.samlConfigurationOptions()))
+        .samlConfiguration(fromServiceWebExperienceAuthConfiguration(webExperienceAuthConfiguration.samlConfiguration()))
         .build();
   }
 
-  private static SamlConfigurationOptions fromServiceWebExperienceAuthConfiguration(
-      final software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions samlConfigurationOptions) {
-    return SamlConfigurationOptions.builder()
+  private static SamlConfiguration fromServiceWebExperienceAuthConfiguration(
+      final software.amazon.awssdk.services.qbusiness.model.SamlConfiguration samlConfigurationOptions) {
+    return SamlConfiguration.builder()
         .metadataXML(samlConfigurationOptions.metadataXML())
         .roleArn(samlConfigurationOptions.roleArn())
-        .userAttribute(samlConfigurationOptions.userAttribute())
+        .userIdAttribute(samlConfigurationOptions.userIdAttribute())
         .userGroupAttribute(samlConfigurationOptions.userGroupAttribute())
         .build();
   }
 
-  private static List<WebExperienceEndpointConfig> fromServiceEndpoints(
-      final List<software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig> endpoints) {
-
-    return endpoints.stream()
-        .map(endpoint -> WebExperienceEndpointConfig.builder()
-            .endpoint(endpoint.endpoint())
-            .type(endpoint.typeAsString())
-            .build())
-        .collect(Collectors.toList());
-  }
-
   private static software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration
   toServiceAuthenticationConfiguration(final WebExperienceAuthConfiguration authenticationConfiguration) {
-    if (authenticationConfiguration == null || authenticationConfiguration.getSamlConfigurationOptions() == null) {
+    if (authenticationConfiguration == null || authenticationConfiguration.getSamlConfiguration() == null) {
       return null;
     }
 
     return software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-        .samlConfigurationOptions(toServiceSamlConfigurationOptions(authenticationConfiguration.getSamlConfigurationOptions()))
+        .samlConfiguration(toServiceSamlConfigurationOptions(authenticationConfiguration.getSamlConfiguration()))
         .build();
   }
 
-  private static software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions
-  toServiceSamlConfigurationOptions(final SamlConfigurationOptions samlConfigurationOptions) {
+  private static software.amazon.awssdk.services.qbusiness.model.SamlConfiguration
+  toServiceSamlConfigurationOptions(final SamlConfiguration samlConfigurationOptions) {
     if (samlConfigurationOptions == null) {
       return null;
     }
 
-    return software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+    return software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
         .metadataXML(samlConfigurationOptions.getMetadataXML())
         .roleArn(samlConfigurationOptions.getRoleArn())
-        .userAttribute(samlConfigurationOptions.getUserAttribute())
+        .userIdAttribute(samlConfigurationOptions.getUserIdAttribute())
         .userGroupAttribute(samlConfigurationOptions.getUserGroupAttribute())
         .build();
   }

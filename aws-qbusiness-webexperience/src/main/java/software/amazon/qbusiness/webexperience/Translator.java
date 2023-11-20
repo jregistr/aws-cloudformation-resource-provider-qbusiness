@@ -15,13 +15,16 @@ import java.util.stream.Stream;
 
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.services.qbusiness.model.CreateDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceSyncJobStatus;
 import software.amazon.awssdk.services.qbusiness.model.DeleteDataSourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourceSyncJobsRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.StopDataSourceSyncJobRequest;
 import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
@@ -41,7 +44,7 @@ public class Translator {
         .clientToken(idempotencyToken)
         .applicationId(model.getApplicationId())
         .indexId(model.getIndexId())
-        .name(model.getName())
+        .displayName(model.getDisplayName())
         .description(model.getDescription())
         .roleArn(model.getRoleArn())
         .schedule(model.getSchedule())
@@ -66,6 +69,23 @@ public class Translator {
         .build();
   }
 
+  static ListDataSourceSyncJobsRequest translateToListSyncJobsRequest(final ResourceModel model) {
+    return ListDataSourceSyncJobsRequest.builder()
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .dataSourceId(model.getDataSourceId())
+        .maxResults(10)
+        .build();
+  }
+
+  static StopDataSourceSyncJobRequest translateToStopSyncJobsRequest(final ResourceModel model) {
+    return StopDataSourceSyncJobRequest.builder()
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .dataSourceId(model.getDataSourceId())
+        .build();
+  }
+
   /**
    * Translates resource object from sdk into a resource model
    *
@@ -77,7 +97,7 @@ public class Translator {
         .applicationId(awsResponse.applicationId())
         .indexId(awsResponse.indexId())
         .dataSourceId(awsResponse.dataSourceId())
-        .name(awsResponse.name())
+        .displayName(awsResponse.displayName())
         .description(awsResponse.description())
         .createdAt(instantToString(awsResponse.createdAt()))
         .updatedAt(instantToString(awsResponse.updatedAt()))
@@ -164,7 +184,7 @@ public class Translator {
         .indexId(model.getIndexId())
         .dataSourceId(model.getDataSourceId())
         .description(model.getDescription())
-        .name(model.getName())
+        .displayName(model.getDisplayName())
         .roleArn(model.getRoleArn())
         .schedule(model.getSchedule())
         .vpcConfiguration(toServiceDataSourceVpcConfiguration(model.getVpcConfiguration()))
@@ -210,15 +230,15 @@ public class Translator {
    * @param serviceResponse - the aws service describe resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(
+  static List<ResourceModel> translateFromListResponse(
       final String applicationId,
       final String indexId,
       final ListDataSourcesResponse serviceResponse) {
-    return streamOfOrEmpty(serviceResponse.summaryItems())
-        .map(resource -> ResourceModel.builder()
+    return streamOfOrEmpty(serviceResponse.dataSources())
+        .map(dataSource -> ResourceModel.builder()
             .applicationId(applicationId)
             .indexId(indexId)
-            .dataSourceId(resource.dataSourceId())
+            .dataSourceId(dataSource.dataSourceId())
             .build()
         )
         .toList();

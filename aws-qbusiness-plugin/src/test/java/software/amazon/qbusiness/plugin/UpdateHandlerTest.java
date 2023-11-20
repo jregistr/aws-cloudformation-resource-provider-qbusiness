@@ -89,17 +89,14 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .subtitle("This is a subtitle of the web experience.")
         .status(WebExperienceStatus.ACTIVE.toString())
         .authenticationConfiguration(WebExperienceAuthConfiguration.builder()
-            .samlConfigurationOptions(SamlConfigurationOptions.builder()
+            .samlConfiguration(SamlConfiguration.builder()
                 .metadataXML("XML")
                 .roleArn("RoleARN")
-                .userAttribute("UserAttribute")
+                .userIdAttribute("UserAttribute")
                 .userGroupAttribute("UserGroupAttribute")
                 .build())
             .build())
-        .endpoints(List.of(WebExperienceEndpointConfig.builder()
-            .endpoint("Endpoint")
-            .type("Type")
-            .build()))
+        .defaultEndpoint("Endpoint")
         .tags(List.of(
             Tag.builder().key("remain").value("thesame").build(),
             Tag.builder().key("toremove").value("nolongerthere").build(),
@@ -113,10 +110,10 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .title("This is a new title of the web experience.")
         .subtitle("This is a new subtitle of the web experience.")
         .authenticationConfiguration(WebExperienceAuthConfiguration.builder()
-            .samlConfigurationOptions(SamlConfigurationOptions.builder()
+            .samlConfiguration(SamlConfiguration.builder()
                 .metadataXML("XML2")
                 .roleArn("RoleARN2")
-                .userAttribute("UserAttribute2")
+                .userIdAttribute("UserAttribute2")
                 .userGroupAttribute("UserGroupAttribute2")
                 .build())
             .build())
@@ -194,10 +191,10 @@ public class UpdateHandlerTest extends AbstractTestBase {
     assertThat(updateAppRequest.webExperienceId()).isEqualTo(WEB_EXPERIENCE_ID);
     assertThat(updateAppRequest.title()).isEqualTo("This is a new title of the web experience.");
     assertThat(updateAppRequest.subtitle()).isEqualTo("This is a new subtitle of the web experience.");
-    assertThat(updateAppRequest.authenticationConfiguration().samlConfigurationOptions().metadataXML()).isEqualTo("XML2");
-    assertThat(updateAppRequest.authenticationConfiguration().samlConfigurationOptions().roleArn()).isEqualTo("RoleARN2");
-    assertThat(updateAppRequest.authenticationConfiguration().samlConfigurationOptions().userAttribute()).isEqualTo("UserAttribute2");
-    assertThat(updateAppRequest.authenticationConfiguration().samlConfigurationOptions().userGroupAttribute())
+    assertThat(updateAppRequest.authenticationConfiguration().samlConfiguration().metadataXML()).isEqualTo("XML2");
+    assertThat(updateAppRequest.authenticationConfiguration().samlConfiguration().roleArn()).isEqualTo("RoleARN2");
+    assertThat(updateAppRequest.authenticationConfiguration().samlConfiguration().userIdAttribute()).isEqualTo("UserAttribute2");
+    assertThat(updateAppRequest.authenticationConfiguration().samlConfiguration().userGroupAttribute())
         .isEqualTo("UserGroupAttribute2");
 
     verify(sdkClient, times(2)).getWebExperience(

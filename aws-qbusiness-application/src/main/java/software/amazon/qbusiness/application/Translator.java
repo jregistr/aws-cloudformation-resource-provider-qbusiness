@@ -1,9 +1,5 @@
 package software.amazon.qbusiness.plugin;
 
-import com.google.common.collect.Lists;
-import software.amazon.awssdk.awscore.AwsRequest;
-import software.amazon.awssdk.awscore.AwsResponse;
-import software.amazon.awssdk.protocols.core.InstantToString;
 import software.amazon.awssdk.services.qbusiness.model.CreatePluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeletePluginRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetPluginRequest;
@@ -23,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -126,7 +121,7 @@ public class Translator {
    * @param listPluginsResponse the aws service list resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final ListPluginsResponse listPluginsResponse) {
+  static List<ResourceModel> translateFromListResponse(final ListPluginsResponse listPluginsResponse) {
     return listPluginsResponse.plugins()
             .stream()
             .map(pluginSummary -> ResourceModel.builder()
@@ -140,12 +135,6 @@ public class Translator {
                     .build())
             .toList();
 
-  }
-
-  private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
-    return Optional.ofNullable(collection)
-        .map(Collection::stream)
-        .orElseGet(Stream::empty);
   }
 
   /**

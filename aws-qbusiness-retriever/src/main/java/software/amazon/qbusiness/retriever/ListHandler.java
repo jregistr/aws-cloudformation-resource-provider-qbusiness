@@ -36,7 +36,7 @@ public class ListHandler extends BaseHandlerStd {
 
     final String nextToken = listWebExperienceResponse.nextToken();
 
-    final List<ResourceModel> models = Translator.translateFromListRequest(
+    final List<ResourceModel> models = Translator.translateFromListResponse(
         listWebExperienceResponse, request.getDesiredResourceState().getApplicationId());
 
     return ProgressEvent.<ResourceModel, CallbackContext>builder()

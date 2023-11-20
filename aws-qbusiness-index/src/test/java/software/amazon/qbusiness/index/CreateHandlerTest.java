@@ -1,5 +1,21 @@
 package software.amazon.qbusiness.index;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +27,7 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
@@ -35,22 +52,6 @@ import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
-
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class CreateHandlerTest extends AbstractTestBase {
@@ -90,7 +91,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     underTest = new CreateHandler(testBackOff);
 
     createModel = ResourceModel.builder()
-        .name("TheMeta")
+        .displayName("TheMeta")
         .description("A Description")
         .applicationId(APP_ID)
         .capacityUnitConfiguration(new StorageCapacityUnitConfiguration(10D))
@@ -131,7 +132,7 @@ public class CreateHandlerTest extends AbstractTestBase {
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .status(IndexStatus.ACTIVE)
             .description(createModel.getDescription())
-            .name(createModel.getName())
+            .displayName(createModel.getDisplayName())
             .capacityUnitConfiguration(software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
                 .units(10)
                 .build())
@@ -146,7 +147,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     var model = resultProgress.getResourceModel();
-    assertThat(model.getName()).isEqualTo(createModel.getName());
+    assertThat(model.getDisplayName()).isEqualTo(createModel.getDisplayName());
     assertThat(model.getApplicationId()).isEqualTo(createModel.getApplicationId());
     assertThat(model.getIndexId()).isEqualTo(createModel.getIndexId());
     assertThat(model.getDescription()).isEqualTo(createModel.getDescription());
@@ -169,7 +170,7 @@ public class CreateHandlerTest extends AbstractTestBase {
         .createdAt(Instant.ofEpochMilli(1697824935000L))
         .updatedAt(Instant.ofEpochMilli(1697839335000L))
         .description(createModel.getDescription())
-        .name(createModel.getName())
+        .displayName(createModel.getDisplayName())
         .capacityUnitConfiguration(software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
             .units(10)
             .build())
@@ -222,7 +223,7 @@ public class CreateHandlerTest extends AbstractTestBase {
             .status(IndexStatus.FAILED)
             .description(createModel.getDescription())
             .errorMessage("There was a problem in get index.")
-            .name(createModel.getName())
+            .displayName(createModel.getDisplayName())
             .capacityUnitConfiguration(software.amazon.awssdk.services.qbusiness.model.StorageCapacityUnitConfiguration.builder()
                 .units(10)
                 .build())

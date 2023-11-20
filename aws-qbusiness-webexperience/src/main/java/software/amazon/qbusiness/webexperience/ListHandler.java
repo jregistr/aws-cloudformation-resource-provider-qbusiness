@@ -30,7 +30,7 @@ public class ListHandler extends BaseHandlerStd {
 
         String nextToken = listPluginsResponse.nextToken();
 
-        List<ResourceModel> models = Translator.translateFromListRequest(listPluginsResponse);
+        List<ResourceModel> models = Translator.translateFromListResponse(listPluginsResponse);
         return ProgressEvent.<ResourceModel, CallbackContext>builder()
             .resourceModels(models)
             .nextToken(nextToken)

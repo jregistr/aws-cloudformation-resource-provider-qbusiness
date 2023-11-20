@@ -1,15 +1,11 @@
 package software.amazon.qbusiness.application;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import software.amazon.awssdk.services.qbusiness.model.AppliedChatConfiguration;
-import software.amazon.awssdk.services.qbusiness.model.AppliedChatContextFilesControlConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
@@ -42,13 +38,11 @@ public class Translator {
   static CreateApplicationRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
     return CreateApplicationRequest.builder()
         .clientToken(idempotentToken)
-        .name(model.getName())
-        .description(model.getDescription())
+        .displayName(model.getDisplayName())
         .roleArn(model.getRoleArn())
-        .capacityUnitConfiguration(toServiceChatCapacityConfiguration(model.getCapacityUnitConfiguration()))
-        .chatConfiguration(toServiceChatConfiguration(model.getChatConfiguration()))
-        .serverSideEncryptionConfiguration(toServiceServerSideEncryptionConfig(model.getServerSideEncryptionConfiguration()))
-        .chatContextFilesControlConfiguration(toServiceChatContextFilesControlConf(model.getChatContextFilesControlConfiguration()))
+        .description(model.getDescription())
+        .encryptionConfiguration(toServiceEncryptionConfig(model.getEncryptionConfiguration()))
+        .attachmentsConfiguration(toServiceAttachmentConfiguration(model.getAttachmentsConfiguration()))
         .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
         .build();
   }
@@ -81,17 +75,15 @@ public class Translator {
    */
   static ResourceModel translateFromReadResponse(final GetApplicationResponse awsResponse) {
     return ResourceModel.builder()
-        .name(awsResponse.name())
+        .displayName(awsResponse.displayName())
         .applicationId(awsResponse.applicationId())
         .roleArn(awsResponse.roleArn())
         .status(awsResponse.statusAsString())
         .description(awsResponse.description())
         .createdAt(instantToString(awsResponse.createdAt()))
         .updatedAt(instantToString(awsResponse.updatedAt()))
-        .capacityUnitConfiguration(fromServiceChatCapacityConfiguration(awsResponse.capacityUnitConfiguration()))
-        .chatConfiguration(fromServiceChatConfiguration(awsResponse.chatConfiguration()))
-        .serverSideEncryptionConfiguration(fromServiceServerSideEncryptionConfig(awsResponse.serverSideEncryptionConfiguration()))
-        .chatContextFilesControlConfiguration(fromServiceChatContextFilesControlConf(awsResponse.chatContextFilesControlConfiguration()))
+        .encryptionConfiguration(fromServiceEncryptionConfig(awsResponse.encryptionConfiguration()))
+        .attachmentsConfiguration(fromServiceAttachmentConfiguration(awsResponse.attachmentsConfiguration()))
         .build();
   }
 
@@ -101,117 +93,51 @@ public class Translator {
         .orElse(null);
   }
 
-  static ChatConfiguration fromServiceChatConfiguration(AppliedChatConfiguration chatConfiguration) {
-    if (chatConfiguration == null) {
-      return null;
-    }
-
-    software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration serviceResponseConfig = chatConfiguration.responseConfiguration();
-
-    if (serviceResponseConfig == null) {
-      return null;
-    }
-
-    return ChatConfiguration.builder()
-        .responseConfiguration(ResponseConfiguration.builder()
-            .blockedPhrases(serviceResponseConfig.blockedPhrases())
-            .defaultResponse(serviceResponseConfig.defaultResponse())
-            .retrievalResponseControlStatus(serviceResponseConfig.retrievalResponseControlStatusAsString())
-            .build())
-        .build();
-  }
-
-  static software.amazon.awssdk.services.qbusiness.model.ChatConfiguration toServiceChatConfiguration(
-      ChatConfiguration modelChatConfig
-  ) {
-    if (modelChatConfig == null || modelChatConfig.getResponseConfiguration() == null) {
-      return null;
-    }
-
-    ResponseConfiguration modelResponseConfig = modelChatConfig.getResponseConfiguration();
-
-    return software.amazon.awssdk.services.qbusiness.model.ChatConfiguration.builder()
-        .responseConfiguration(software.amazon.awssdk.services.qbusiness.model.ResponseConfiguration.builder()
-            .blockedPhrases(modelResponseConfig.getBlockedPhrases())
-            .defaultResponse(modelResponseConfig.getDefaultResponse())
-            .retrievalResponseControlStatus(modelResponseConfig.getRetrievalResponseControlStatus())
-            .build())
-        .build();
-  }
-
-  static ServerSideEncryptionConfiguration fromServiceServerSideEncryptionConfig(
-      software.amazon.awssdk.services.qbusiness.model.ServerSideEncryptionConfiguration serviceConfig
+  static EncryptionConfiguration fromServiceEncryptionConfig(
+      software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration serviceConfig
   ) {
     if (serviceConfig == null) {
       return null;
     }
 
-    return ServerSideEncryptionConfiguration.builder()
+    return EncryptionConfiguration.builder()
         .kmsKeyId(serviceConfig.kmsKeyId())
         .build();
   }
 
-  static software.amazon.awssdk.services.qbusiness.model.ServerSideEncryptionConfiguration toServiceServerSideEncryptionConfig(
-      ServerSideEncryptionConfiguration modelServerSideConfig
+  static software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration toServiceEncryptionConfig(
+      EncryptionConfiguration modelConfig
   ) {
-    if (modelServerSideConfig == null) {
+    if (modelConfig == null) {
       return null;
     }
 
-    return software.amazon.awssdk.services.qbusiness.model.ServerSideEncryptionConfiguration.builder()
-        .kmsKeyId(modelServerSideConfig.getKmsKeyId())
+    return software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration.builder()
+        .kmsKeyId(modelConfig.getKmsKeyId())
         .build();
   }
 
-  static ChatContextFilesControlConfiguration fromServiceChatContextFilesControlConf(
-      AppliedChatContextFilesControlConfiguration serviceAppliedChatContextConf
+  static AttachmentsConfiguration fromServiceAttachmentConfiguration(
+      software.amazon.awssdk.services.qbusiness.model.AppliedAttachmentsConfiguration serviceConfig
   ) {
-    if (serviceAppliedChatContextConf == null) {
+    if (serviceConfig == null) {
       return null;
     }
 
-    return ChatContextFilesControlConfiguration.builder()
-        .chatContextFilesControlMode(serviceAppliedChatContextConf.chatContextFilesControlModeAsString())
+    return AttachmentsConfiguration.builder()
+        .attachmentsControlMode(serviceConfig.attachmentsControlModeAsString())
         .build();
   }
 
-  static software.amazon.awssdk.services.qbusiness.model.ChatContextFilesControlConfiguration toServiceChatContextFilesControlConf(
-      ChatContextFilesControlConfiguration modelChatContextConf
+  static software.amazon.awssdk.services.qbusiness.model.AttachmentsConfiguration toServiceAttachmentConfiguration(
+      AttachmentsConfiguration modelConfig
   ) {
-    if (modelChatContextConf == null) {
-      return null;
-    }
-    return software.amazon.awssdk.services.qbusiness.model.ChatContextFilesControlConfiguration.builder()
-        .chatContextFilesControlMode(modelChatContextConf.getChatContextFilesControlMode())
-        .build();
-  }
-
-  static ChatCapacityUnitConfiguration fromServiceChatCapacityConfiguration(
-      software.amazon.awssdk.services.qbusiness.model.ChatCapacityUnitConfiguration responseChatCapacityUnitsConf
-  ) {
-
-    if (responseChatCapacityUnitsConf == null) {
+    if (modelConfig == null) {
       return null;
     }
 
-    return ChatCapacityUnitConfiguration.builder()
-        .users(Double.valueOf(responseChatCapacityUnitsConf.users()))
-        .build();
-  }
-
-  static software.amazon.awssdk.services.qbusiness.model.ChatCapacityUnitConfiguration toServiceChatCapacityConfiguration(
-      ChatCapacityUnitConfiguration modelChatCapacityConfig
-  ) {
-    if (modelChatCapacityConfig == null) {
-      return null;
-    }
-
-    if (modelChatCapacityConfig.getUsers() == null) {
-      return null;
-    }
-
-    return software.amazon.awssdk.services.qbusiness.model.ChatCapacityUnitConfiguration.builder()
-        .users(modelChatCapacityConfig.getUsers().intValue())
+    return software.amazon.awssdk.services.qbusiness.model.AttachmentsConfiguration.builder()
+        .attachmentsControlMode(modelConfig.getAttachmentsControlMode())
         .build();
   }
 
@@ -246,12 +172,10 @@ public class Translator {
   static UpdateApplicationRequest translateToUpdateRequest(final ResourceModel model) {
     return UpdateApplicationRequest.builder()
         .applicationId(model.getApplicationId())
-        .name(model.getName())
+        .displayName(model.getDisplayName())
         .description(model.getDescription())
         .roleArn(model.getRoleArn())
-        .chatConfiguration(toServiceChatConfiguration(model.getChatConfiguration()))
-        .capacityUnitConfiguration(toServiceChatCapacityConfiguration(model.getCapacityUnitConfiguration()))
-        .chatContextFilesControlConfiguration(toServiceChatContextFilesControlConf(model.getChatContextFilesControlConfiguration()))
+        .attachmentsConfiguration(toServiceAttachmentConfiguration(model.getAttachmentsConfiguration()))
         .build();
   }
 
@@ -273,18 +197,14 @@ public class Translator {
    * @param serviceResponse the aws service get resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final ListApplicationsResponse serviceResponse) {
-    return serviceResponse.items()
+  static List<ResourceModel> translateFromListResponse(final ListApplicationsResponse serviceResponse) {
+    return serviceResponse.applications()
         .stream()
-        .map(summary -> ResourceModel.builder()
-            .applicationId(summary.applicationId())
+        .map(application -> ResourceModel.builder()
+            .applicationId(application.applicationId())
             .build()
         )
         .toList();
-  }
-
-  private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
-    return Optional.ofNullable(collection).stream().flatMap(Collection::stream);
   }
 
   /**

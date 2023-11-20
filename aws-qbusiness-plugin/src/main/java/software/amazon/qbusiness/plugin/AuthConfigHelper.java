@@ -1,71 +1,80 @@
 package software.amazon.qbusiness.plugin;
 
+import software.amazon.cloudformation.exceptions.CfnGeneralServiceException;
+
 public class AuthConfigHelper {
 
   public static PluginAuthConfiguration convertFromServiceAuthConfig(
-          software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration serviceAuthConfig
+      software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration serviceAuthConfig
   ) {
     if (serviceAuthConfig.oAuth2ClientCredentialConfiguration() != null) {
-       return software.amazon.qbusiness.plugin.PluginAuthConfiguration.builder()
-               .oAuth2ClientCredentialConfiguration(
-                       convertFromServiceOAuth(serviceAuthConfig.oAuth2ClientCredentialConfiguration()))
-            .build();
+      return software.amazon.qbusiness.plugin.PluginAuthConfiguration.builder()
+          .oAuth2ClientCredentialConfiguration(
+              convertFromServiceOAuth(serviceAuthConfig.oAuth2ClientCredentialConfiguration()))
+          .build();
     }
 
     return software.amazon.qbusiness.plugin.PluginAuthConfiguration.builder()
-            .basicAuthConfiguration(
-                    convertFromServiceBasicAuth(serviceAuthConfig.basicAuthConfiguration()))
-            .build();
+        .basicAuthConfiguration(
+            convertFromServiceBasicAuth(serviceAuthConfig.basicAuthConfiguration()))
+        .build();
   }
 
   public static software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration convertToServiceAuthConfig(
-          PluginAuthConfiguration cfnAuthConfig
+      PluginAuthConfiguration cfnAuthConfig
   ) {
-    if (cfnAuthConfig.getOAuth2ClientCredentialConfiguration() != null) {
-      return software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration.builder()
-              .oAuth2ClientCredentialConfiguration(convertToServiceOath(cfnAuthConfig.getOAuth2ClientCredentialConfiguration()))
-              .build();
+    if (cfnAuthConfig == null) {
+      return null;
     }
 
-    return software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration.builder()
-            .basicAuthConfiguration(convertToServiceBasicAuth(cfnAuthConfig.getBasicAuthConfiguration()))
-            .build();
+    if (cfnAuthConfig.getOAuth2ClientCredentialConfiguration() != null) {
+      return software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration.builder()
+          .oAuth2ClientCredentialConfiguration(convertToServiceOath(cfnAuthConfig.getOAuth2ClientCredentialConfiguration()))
+          .build();
+    }
+
+    if (cfnAuthConfig.getBasicAuthConfiguration() != null) {
+      return software.amazon.awssdk.services.qbusiness.model.PluginAuthConfiguration.builder()
+          .basicAuthConfiguration(convertToServiceBasicAuth(cfnAuthConfig.getBasicAuthConfiguration()))
+          .build();
+    }
+    throw new CfnGeneralServiceException("Unknown auth configuration");
   }
 
   private static BasicAuthConfiguration convertFromServiceBasicAuth(
-          software.amazon.awssdk.services.qbusiness.model.BasicAuthConfiguration serviceBasicAuth
+      software.amazon.awssdk.services.qbusiness.model.BasicAuthConfiguration serviceBasicAuth
   ) {
     return BasicAuthConfiguration.builder()
-            .roleArn(serviceBasicAuth.roleArn())
-            .secretArn(serviceBasicAuth.secretArn())
-            .build();
+        .roleArn(serviceBasicAuth.roleArn())
+        .secretArn(serviceBasicAuth.secretArn())
+        .build();
   }
 
   private static OAuth2ClientCredentialConfiguration convertFromServiceOAuth(
-          software.amazon.awssdk.services.qbusiness.model.OAuth2ClientCredentialConfiguration serviceOath
+      software.amazon.awssdk.services.qbusiness.model.OAuth2ClientCredentialConfiguration serviceOath
   ) {
     return OAuth2ClientCredentialConfiguration.builder()
-            .roleArn(serviceOath.roleArn())
-            .secretArn(serviceOath.secretArn())
-            .build();
+        .roleArn(serviceOath.roleArn())
+        .secretArn(serviceOath.secretArn())
+        .build();
   }
 
   private static software.amazon.awssdk.services.qbusiness.model.BasicAuthConfiguration convertToServiceBasicAuth(
-          BasicAuthConfiguration cfnBasicAuth
+      BasicAuthConfiguration cfnBasicAuth
   ) {
     return software.amazon.awssdk.services.qbusiness.model.BasicAuthConfiguration.builder()
-            .roleArn(cfnBasicAuth.getRoleArn())
-            .secretArn(cfnBasicAuth.getSecretArn())
-            .build();
+        .roleArn(cfnBasicAuth.getRoleArn())
+        .secretArn(cfnBasicAuth.getSecretArn())
+        .build();
   }
 
   private static software.amazon.awssdk.services.qbusiness.model.OAuth2ClientCredentialConfiguration convertToServiceOath(
-          OAuth2ClientCredentialConfiguration cfnOath
+      OAuth2ClientCredentialConfiguration cfnOath
   ) {
     return software.amazon.awssdk.services.qbusiness.model.OAuth2ClientCredentialConfiguration.builder()
-            .roleArn(cfnOath.getRoleArn())
-            .secretArn(cfnOath.getSecretArn())
-            .build();
+        .roleArn(cfnOath.getRoleArn())
+        .secretArn(cfnOath.getSecretArn())
+        .build();
   }
 
 }

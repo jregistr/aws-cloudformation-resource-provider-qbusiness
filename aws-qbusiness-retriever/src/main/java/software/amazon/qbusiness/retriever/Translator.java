@@ -1,6 +1,17 @@
 package software.amazon.qbusiness.retriever;
 
-import software.amazon.awssdk.services.qbusiness.model.AddRetrieverRequest;
+import static java.util.stream.Collectors.toList;
+
+import java.time.Instant;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+
+import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.DeleteRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetRetrieverResponse;
@@ -12,39 +23,30 @@ import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UpdateRetrieverRequest;
+import software.amazon.cloudformation.exceptions.CfnInvalidRequestException;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Stream;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * This class is a centralized placeholder for
- *  - api request construction
- *  - object translation to/from aws sdk
- *  - resource model construction for read/list handlers
+ * - api request construction
+ * - object translation to/from aws sdk
+ * - resource model construction for read/list handlers
  */
 
 public class Translator {
 
   /**
    * Request to create a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static AddRetrieverRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
-    return AddRetrieverRequest.builder()
+  static CreateRetrieverRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
+    return CreateRetrieverRequest.builder()
         .applicationId(model.getApplicationId())
-        .retrieverType(model.getRetrieverType())
-        .retrieverName(model.getRetrieverName())
-        .retrieverConfiguration(toServiceRetrieverConfiguration(model.getRetrieverConfiguration()))
+        .type(model.getType())
+        .displayName(model.getDisplayName())
+        .configuration(toServiceRetrieverConfiguration(model.getConfiguration()))
         .roleArn(model.getRoleArn())
         .clientToken(idempotentToken)
         .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
@@ -53,6 +55,7 @@ public class Translator {
 
   /**
    * Request to read a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
@@ -65,6 +68,7 @@ public class Translator {
 
   /**
    * Translates resource object from sdk into a resource model
+   *
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
@@ -72,10 +76,10 @@ public class Translator {
     return ResourceModel.builder()
         .applicationId(awsResponse.applicationId())
         .retrieverId(awsResponse.retrieverId())
-        .retrieverType(awsResponse.retrieverTypeAsString())
-        .retrieverState(awsResponse.retrieverStateAsString())
-        .retrieverName(awsResponse.retrieverName())
-        .retrieverConfiguration(fromServiceRetrieverConfiguration(awsResponse.retrieverConfiguration()))
+        .type(awsResponse.typeAsString())
+        .state(awsResponse.stateAsString())
+        .displayName(awsResponse.displayName())
+        .configuration(fromServiceRetrieverConfiguration(awsResponse.configuration()))
         .roleArn(awsResponse.roleArn())
         .createdAt(instantToString(awsResponse.createdAt()))
         .updatedAt(instantToString(awsResponse.updatedAt()))
@@ -84,6 +88,7 @@ public class Translator {
 
   /**
    * Request to delete a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
@@ -96,6 +101,7 @@ public class Translator {
 
   /**
    * Request to update properties of a previously created resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
@@ -103,34 +109,37 @@ public class Translator {
     return UpdateRetrieverRequest.builder()
         .applicationId(model.getApplicationId())
         .retrieverId(model.getRetrieverId())
-        .retrieverConfiguration(toServiceRetrieverConfiguration(model.getRetrieverConfiguration()))
-        .retrieverName(model.getRetrieverName())
+        .configuration(toServiceRetrieverConfiguration(model.getConfiguration()))
+        .displayName(model.getDisplayName())
         .roleArn(model.getRoleArn())
         .build();
   }
 
   /**
    * Request to list resources
+   *
    * @param nextToken token passed to the aws service list resources request
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static ListRetrieversRequest translateToListRequest(final String nextToken) {
+  static ListRetrieversRequest translateToListRequest(ResourceModel resourceModel, final String nextToken) {
     return ListRetrieversRequest.builder()
+        .applicationId(resourceModel.getApplicationId())
         .nextToken(nextToken)
         .build();
   }
 
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
+   *
    * @param serviceResponse the aws service describe resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListRequest(final ListRetrieversResponse serviceResponse) {
-    return serviceResponse.summaryItems()
+  static List<ResourceModel> translateFromListResponse(final ListRetrieversResponse serviceResponse) {
+    return serviceResponse.retrievers()
         .stream()
-        .map(summary -> ResourceModel.builder()
-            .applicationId(summary.applicationId())
-            .retrieverId(summary.retrieverId())
+        .map(retriever -> ResourceModel.builder()
+            .applicationId(retriever.applicationId())
+            .retrieverId(retriever.retrieverId())
             .build()
         )
         .toList();
@@ -144,6 +153,7 @@ public class Translator {
 
   /**
    * Request to add tags to a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -174,6 +184,7 @@ public class Translator {
 
   /**
    * Request to add tags to a resource
+   *
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
@@ -201,7 +212,7 @@ public class Translator {
   }
 
   static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
-    if (listTagsResponse == null || !listTagsResponse.hasTags())  {
+    if (listTagsResponse == null || !listTagsResponse.hasTags()) {
       return model;
     }
 
@@ -217,8 +228,18 @@ public class Translator {
       return null;
     }
 
+    if (modelRetrieverConfiguration.getKendraIndexConfiguration() == null && modelRetrieverConfiguration.getNativeIndexConfiguration() == null) {
+      throw new CfnInvalidRequestException("Neither index nor native configuration is provided.");
+    }
+
+    if (modelRetrieverConfiguration.getKendraIndexConfiguration() != null) {
+      return software.amazon.awssdk.services.qbusiness.model.RetrieverConfiguration.builder()
+          .kendraIndexConfiguration(toServiceKendraIndexConfiguration(modelRetrieverConfiguration.getKendraIndexConfiguration()))
+          .build();
+    }
+
     return software.amazon.awssdk.services.qbusiness.model.RetrieverConfiguration.builder()
-        .kendraIndexConfiguration(toServiceKendraIndexConfiguration(modelRetrieverConfiguration.getKendraIndexConfiguration()))
+        .nativeIndexConfiguration(toServiceNativeIndexConfiguration(modelRetrieverConfiguration.getNativeIndexConfiguration()))
         .build();
   }
 
@@ -231,7 +252,20 @@ public class Translator {
 
     return software.amazon.awssdk.services.qbusiness.model.KendraIndexConfiguration.builder()
         .indexId(modelKendraIndexConfiguration.getIndexId())
-        .documentRelevanceOverrideConfigurations(toServiceDocumentRelevanceOverrideConfigurations(modelKendraIndexConfiguration.getDocumentRelevanceOverrideConfigurations()))
+        .documentRelevanceOverrideConfigurations(
+            toServiceDocumentRelevanceOverrideConfigurations(modelKendraIndexConfiguration.getDocumentRelevanceOverrideConfigurations()))
+        .build();
+  }
+
+  static software.amazon.awssdk.services.qbusiness.model.NativeIndexConfiguration toServiceNativeIndexConfiguration(
+      NativeIndexConfiguration modelData
+  ) {
+    if (modelData == null) {
+      return null;
+    }
+
+    return software.amazon.awssdk.services.qbusiness.model.NativeIndexConfiguration.builder()
+        .indexId(modelData.getIndexId())
         .build();
   }
 
@@ -243,10 +277,10 @@ public class Translator {
     }
 
     return modelDocumentRelevanceOverrideConfigurations.stream().map(config ->
-      software.amazon.awssdk.services.qbusiness.model.DocumentRelevanceOverrideConfiguration.builder()
-          .name(config.getName())
-          .relevance(toServiceRelevance(config.getRelevance()))
-          .build()
+        software.amazon.awssdk.services.qbusiness.model.DocumentRelevanceOverrideConfiguration.builder()
+            .name(config.getName())
+            .relevance(toServiceRelevance(config.getRelevance()))
+            .build()
     ).collect(toList());
   }
 
@@ -302,7 +336,8 @@ public class Translator {
 
     return KendraIndexConfiguration.builder()
         .indexId(serviceKendraIndexConfiguration.indexId())
-        .documentRelevanceOverrideConfigurations(fromServiceDocumentRelevanceOverrideConfigurations(serviceKendraIndexConfiguration.documentRelevanceOverrideConfigurations()))
+        .documentRelevanceOverrideConfigurations(
+            fromServiceDocumentRelevanceOverrideConfigurations(serviceKendraIndexConfiguration.documentRelevanceOverrideConfigurations()))
         .build();
   }
 

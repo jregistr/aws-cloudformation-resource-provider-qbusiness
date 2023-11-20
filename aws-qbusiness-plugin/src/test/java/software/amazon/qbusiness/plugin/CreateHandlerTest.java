@@ -1,16 +1,31 @@
-package software.amazon.qbusiness.plugin;
+package software.amazon.qbusiness.webexperience;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.junit.jupiter.MockitoExtension;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
@@ -19,14 +34,15 @@ import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceRespon
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
 import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
-import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.ServiceQuotaExceededException;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
+import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
+import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
 import software.amazon.cloudformation.exceptions.CfnNotStabilizedException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.HandlerErrorCode;
@@ -36,32 +52,12 @@ import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
 public class CreateHandlerTest extends AbstractTestBase {
 
   private static final String APP_ID = "a197dafc-2158-4f93-ab0d-b1c361c39838";
   private static final String WEB_EXPERIENCE_ID = "22222222-1596-4f1a-a3c8-e5f4b33d9fe5";
 
-  @Mock
   private AmazonWebServicesClientProxy proxy;
-
-  @Mock
   private ProxyClient<QBusinessClient> proxyClient;
 
   @Mock
@@ -79,7 +75,6 @@ public class CreateHandlerTest extends AbstractTestBase {
   public void setup() {
     testMocks = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-    qbusinessClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, qbusinessClient);
 
     testBackOff = Constant.of()
@@ -94,10 +89,10 @@ public class CreateHandlerTest extends AbstractTestBase {
         .title("This is a title of the web experience.")
         .subtitle("This is a subtitle of the web experience.")
         .authenticationConfiguration(WebExperienceAuthConfiguration.builder()
-            .samlConfigurationOptions(SamlConfigurationOptions.builder()
+            .samlConfiguration(SamlConfiguration.builder()
                 .metadataXML("XML")
                 .roleArn("RoleARN")
-                .userAttribute("UserAttribute")
+                .userIdAttribute("UserAttribute")
                 .userGroupAttribute("UserGroupAttribute")
                 .build())
             .build())
@@ -116,6 +111,7 @@ public class CreateHandlerTest extends AbstractTestBase {
   public void tear_down() throws Exception {
     verify(qbusinessClient, atLeastOnce()).serviceName();
     verifyNoMoreInteractions(qbusinessClient);
+
     testMocks.close();
   }
 
@@ -124,34 +120,38 @@ public class CreateHandlerTest extends AbstractTestBase {
     // set up scenario
     when(qbusinessClient.createWebExperience(any(CreateWebExperienceRequest.class)))
         .thenReturn(CreateWebExperienceResponse.builder()
-            .id(WEB_EXPERIENCE_ID)
+            .webExperienceId(WEB_EXPERIENCE_ID)
             .build()
         );
     when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
         .tags(List.of())
         .build());
-    when(qbusinessClient.getWebExperience(any(GetWebExperienceRequest.class)))
-        .thenReturn(GetWebExperienceResponse.builder()
-            .applicationId(APP_ID)
-            .webExperienceId(WEB_EXPERIENCE_ID)
-            .createdAt(Instant.ofEpochMilli(1697824935000L))
-            .updatedAt(Instant.ofEpochMilli(1697839335000L))
-            .title("This is a title of the web experience.")
-            .subtitle("This is a subtitle of the web experience.")
-            .status(WebExperienceStatus.ACTIVE)
-            .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-                .samlConfigurationOptions(software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
-                    .metadataXML("XML")
-                    .roleArn("RoleARN")
-                    .userAttribute("UserAttribute")
-                    .userGroupAttribute("UserGroupAttribute")
-                    .build())
+
+    GetWebExperienceResponse baseResponse = GetWebExperienceResponse.builder()
+        .applicationId(APP_ID)
+        .webExperienceId(WEB_EXPERIENCE_ID)
+        .createdAt(Instant.ofEpochMilli(1697824935000L))
+        .updatedAt(Instant.ofEpochMilli(1697839335000L))
+        .title("This is a title of the web experience.")
+        .subtitle("This is a subtitle of the web experience.")
+        .status(WebExperienceStatus.ACTIVE)
+        .defaultEndpoint("Endpoint")
+        .build();
+
+    GetWebExperienceResponse responseWithAuth = baseResponse.toBuilder()
+        .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
+            .samlConfiguration(software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
+                .metadataXML("XML")
+                .roleArn("RoleARN")
+                .userIdAttribute("UserAttribute")
+                .userGroupAttribute("UserGroupAttribute")
                 .build())
-            .endpoints(List.of(software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig.builder()
-                .endpoint("Endpoint")
-                .type("Type")
-                .build()))
-            .build());
+            .build())
+        .build();
+
+    when(qbusinessClient.getWebExperience(any(GetWebExperienceRequest.class)))
+        .thenReturn(baseResponse)
+        .thenReturn(responseWithAuth);
 
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
@@ -169,14 +169,68 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(resultModel.getTitle()).isEqualTo("This is a title of the web experience.");
     assertThat(resultModel.getSubtitle()).isEqualTo("This is a subtitle of the web experience.");
     assertThat(resultModel.getStatus()).isEqualTo(WebExperienceStatus.ACTIVE.toString());
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getMetadataXML()).isEqualTo("XML");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getRoleArn()).isEqualTo("RoleARN");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getUserAttribute()).isEqualTo("UserAttribute");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getUserGroupAttribute())
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getMetadataXML()).isEqualTo("XML");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getRoleArn()).isEqualTo("RoleARN");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getUserIdAttribute()).isEqualTo("UserAttribute");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getUserGroupAttribute())
         .isEqualTo("UserGroupAttribute");
-    assertThat(resultModel.getEndpoints().size()).isEqualTo(1);
-    assertThat(resultModel.getEndpoints().get(0).getEndpoint()).isEqualTo("Endpoint");
-    assertThat(resultModel.getEndpoints().get(0).getType()).isEqualTo("Type");
+    assertThat(resultModel.getDefaultEndpoint()).isEqualTo("Endpoint");
+
+    verify(qbusinessClient).createWebExperience(any(CreateWebExperienceRequest.class));
+
+    var updateReqCaptor = ArgumentCaptor.forClass(UpdateWebExperienceRequest.class);
+    verify(qbusinessClient).updateWebExperience(updateReqCaptor.capture());
+    verify(qbusinessClient, times(3)).getWebExperience(
+        argThat((ArgumentMatcher<GetWebExperienceRequest>) t -> t.applicationId().equals(APP_ID) && t.webExperienceId().equals(WEB_EXPERIENCE_ID))
+    );
+    verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+
+    UpdateWebExperienceRequest updateRequest = updateReqCaptor.getValue();
+    assertThat(updateRequest.applicationId()).isEqualTo(APP_ID);
+    assertThat(updateRequest.webExperienceId()).isEqualTo(WEB_EXPERIENCE_ID);
+  }
+
+  @Test
+  public void testItSkipsCallingUpdate() {
+    // set up
+    when(qbusinessClient.createWebExperience(any(CreateWebExperienceRequest.class)))
+        .thenReturn(CreateWebExperienceResponse.builder()
+            .webExperienceId(WEB_EXPERIENCE_ID)
+            .build()
+        );
+
+    when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
+        .tags(List.of())
+        .build());
+
+    createModel = createModel.toBuilder()
+        .authenticationConfiguration(null)
+        .build();
+    testRequest.setDesiredResourceState(createModel);
+    GetWebExperienceResponse response = GetWebExperienceResponse.builder()
+        .applicationId(APP_ID)
+        .webExperienceId(WEB_EXPERIENCE_ID)
+        .createdAt(Instant.ofEpochMilli(1697824935000L))
+        .updatedAt(Instant.ofEpochMilli(1697839335000L))
+        .title("This is a title of the web experience.")
+        .subtitle("This is a subtitle of the web experience.")
+        .status(WebExperienceStatus.ACTIVE)
+        .defaultEndpoint("Endpoint")
+        .build();
+    when(qbusinessClient.getWebExperience(any(GetWebExperienceRequest.class)))
+        .thenReturn(response);
+
+    // call method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    var resultModel = resultProgress.getResourceModel();
+    assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
+    assertThat(resultModel.getWebExperienceId()).isEqualTo(WEB_EXPERIENCE_ID);
 
     verify(qbusinessClient).createWebExperience(any(CreateWebExperienceRequest.class));
     verify(qbusinessClient, times(2)).getWebExperience(
@@ -188,6 +242,16 @@ public class CreateHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequestFromProcessingStateToActive() {
     // set up scenario
+    when(qbusinessClient.createWebExperience(any(CreateWebExperienceRequest.class)))
+        .thenReturn(CreateWebExperienceResponse.builder()
+            .webExperienceId(WEB_EXPERIENCE_ID)
+            .build()
+        );
+
+    when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
+        .tags(List.of())
+        .build());
+
     var getResponse = GetWebExperienceResponse.builder()
         .applicationId(APP_ID)
         .webExperienceId(WEB_EXPERIENCE_ID)
@@ -196,27 +260,15 @@ public class CreateHandlerTest extends AbstractTestBase {
         .title("This is a title of the web experience.")
         .subtitle("This is a subtitle of the web experience.")
         .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-            .samlConfigurationOptions(software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+            .samlConfiguration(software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
                 .metadataXML("XML")
                 .roleArn("RoleARN")
-                .userAttribute("UserAttribute")
+                .userIdAttribute("UserAttribute")
                 .userGroupAttribute("UserGroupAttribute")
                 .build())
             .build())
-        .endpoints(List.of(software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig.builder()
-            .endpoint("Endpoint")
-            .type("Type")
-            .build()))
+        .defaultEndpoint("Endpoint")
         .build();
-
-    when(qbusinessClient.createWebExperience(any(CreateWebExperienceRequest.class)))
-        .thenReturn(CreateWebExperienceResponse.builder()
-            .id(WEB_EXPERIENCE_ID)
-            .build()
-        );
-    when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
-        .tags(List.of())
-        .build());
 
     when(qbusinessClient.getWebExperience(any(GetWebExperienceRequest.class)))
         .thenReturn(
@@ -233,9 +285,10 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     verify(qbusinessClient).createWebExperience(any(CreateWebExperienceRequest.class));
-    verify(qbusinessClient, times(3)).getWebExperience(
+    verify(qbusinessClient, times(4)).getWebExperience(
         argThat((ArgumentMatcher<GetWebExperienceRequest>) t -> t.applicationId().equals(APP_ID) && t.webExperienceId().equals(WEB_EXPERIENCE_ID))
     );
+    verify(qbusinessClient).updateWebExperience(any(UpdateWebExperienceRequest.class));
     verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
   }
 
@@ -244,9 +297,10 @@ public class CreateHandlerTest extends AbstractTestBase {
     // set up
     when(qbusinessClient.createWebExperience(any(CreateWebExperienceRequest.class)))
         .thenReturn(CreateWebExperienceResponse.builder()
-            .id(WEB_EXPERIENCE_ID)
+            .webExperienceId(WEB_EXPERIENCE_ID)
             .build()
         );
+
     when(qbusinessClient.getWebExperience(any(GetWebExperienceRequest.class)))
         .thenReturn(GetWebExperienceResponse.builder()
             .applicationId(APP_ID)
@@ -255,27 +309,23 @@ public class CreateHandlerTest extends AbstractTestBase {
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .title("This is a title of the web experience.")
             .subtitle("This is a subtitle of the web experience.")
-            .errorMessage("There was a problem in get web experience.")
+            .error("There was a problem in get web experience.")
             .status(WebExperienceStatus.FAILED)
             .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-                .samlConfigurationOptions(software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+                .samlConfiguration(software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
                     .metadataXML("XML")
                     .roleArn("RoleARN")
-                    .userAttribute("UserAttribute")
+                    .userIdAttribute("UserAttribute")
                     .userGroupAttribute("UserGroupAttribute")
                     .build())
                 .build())
-            .endpoints(List.of(software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig.builder()
-                .endpoint("Endpoint")
-                .type("Type")
-                .build()))
+            .defaultEndpoint("Endpoint")
             .build());
 
     // call method under test & verify
     assertThatThrownBy(() -> underTest.handleRequest(
         proxy, testRequest, new CallbackContext(), proxyClient, logger
     )).isInstanceOf(CfnNotStabilizedException.class);
-
     verify(qbusinessClient).createWebExperience(any(CreateWebExperienceRequest.class));
     verify(qbusinessClient).getWebExperience(any(GetWebExperienceRequest.class));
   }

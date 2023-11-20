@@ -86,7 +86,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     underTest = new CreateHandler(testBackOff);
 
     createModel = ResourceModel.builder()
-        .name("TheMeta")
+        .displayName("TheMeta")
         .description("A Description")
         .roleArn("such role, very arn")
         .build();
@@ -124,7 +124,7 @@ public class CreateHandlerTest extends AbstractTestBase {
             .applicationId(APP_ID)
             .status(ApplicationStatus.ACTIVE)
             .description(createModel.getDescription())
-            .name(createModel.getName())
+            .displayName(createModel.getDisplayName())
             .roleArn(createModel.getRoleArn())
             .build());
 
@@ -137,7 +137,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
     var model = resultProgress.getResourceModel();
-    assertThat(model.getName()).isEqualTo(createModel.getName());
+    assertThat(model.getDisplayName()).isEqualTo(createModel.getDisplayName());
     assertThat(model.getRoleArn()).isEqualTo(createModel.getRoleArn());
     assertThat(model.getDescription()).isEqualTo(createModel.getDescription());
     assertThat(model.getStatus()).isEqualTo(ApplicationStatus.ACTIVE.toString());
@@ -155,7 +155,7 @@ public class CreateHandlerTest extends AbstractTestBase {
     var getResponse = GetApplicationResponse.builder()
         .applicationId(APP_ID)
         .description(createModel.getDescription())
-        .name(createModel.getName())
+        .displayName(createModel.getDisplayName())
         .roleArn(createModel.getRoleArn())
         .build();
 

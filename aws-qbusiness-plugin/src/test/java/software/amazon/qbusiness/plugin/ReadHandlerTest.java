@@ -1,14 +1,27 @@
 package software.amazon.qbusiness.webexperience;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
@@ -28,30 +41,13 @@ import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
-
-@ExtendWith(MockitoExtension.class)
 public class ReadHandlerTest extends AbstractTestBase {
 
   private static final String APP_ID = "63451660-1596-4f1a-a3c8-e5f4b33d9fe5";
   private static final String WEB_EXPERIENCE_ID = "11111111-1596-4f1a-a3c8-e5f4b33d9fe5";
 
-  @Mock
   private AmazonWebServicesClientProxy proxy;
 
-  @Mock
   private ProxyClient<QBusinessClient> proxyClient;
 
   @Mock
@@ -59,13 +55,16 @@ public class ReadHandlerTest extends AbstractTestBase {
 
   private ReadHandler underTest;
 
-  ResourceHandlerRequest<ResourceModel> testRequest;
-  ResourceModel model;
+  private ResourceHandlerRequest<ResourceModel> testRequest;
+  private ResourceModel model;
+
+  private AutoCloseable testMocks;
 
   @BeforeEach
   public void setup() {
+    testMocks = MockitoAnnotations.openMocks(this);
+
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-    sdkClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, sdkClient);
     underTest = new ReadHandler();
 
@@ -83,15 +82,17 @@ public class ReadHandlerTest extends AbstractTestBase {
   }
 
   @AfterEach
-  public void tear_down() {
+  public void tear_down() throws Exception {
     verify(sdkClient, atLeastOnce()).serviceName();
     verifyNoMoreInteractions(sdkClient);
+
+    testMocks.close();
   }
 
   @Test
   public void handleRequest_SimpleSuccess() {
     // set up test scenario
-    when(proxyClient.client().getWebExperience(any(GetWebExperienceRequest.class)))
+    when(sdkClient.getWebExperience(any(GetWebExperienceRequest.class)))
         .thenReturn(GetWebExperienceResponse.builder()
             .applicationId(APP_ID)
             .webExperienceId(WEB_EXPERIENCE_ID)
@@ -101,17 +102,14 @@ public class ReadHandlerTest extends AbstractTestBase {
             .subtitle("This is a subtitle of the web experience.")
             .status(WebExperienceStatus.ACTIVE)
             .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-                .samlConfigurationOptions(software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+                .samlConfiguration(software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
                     .metadataXML("XML")
                     .roleArn("RoleARN")
-                    .userAttribute("UserAttribute")
+                    .userIdAttribute("UserAttribute")
                     .userGroupAttribute("UserGroupAttribute")
                     .build())
                 .build())
-            .endpoints(List.of(software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig.builder()
-                .endpoint("Endpoint")
-                .type("Type")
-                .build()))
+            .defaultEndpoint("Endpoint")
             .build());
     when(proxyClient.client().listTagsForResource(any(ListTagsForResourceRequest.class)))
         .thenReturn(ListTagsForResourceResponse.builder()
@@ -143,14 +141,12 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(resultModel.getTitle()).isEqualTo("This is a title of the web experience.");
     assertThat(resultModel.getSubtitle()).isEqualTo("This is a subtitle of the web experience.");
     assertThat(resultModel.getStatus()).isEqualTo(WebExperienceStatus.ACTIVE.toString());
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getMetadataXML()).isEqualTo("XML");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getRoleArn()).isEqualTo("RoleARN");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getUserAttribute()).isEqualTo("UserAttribute");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getUserGroupAttribute())
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getMetadataXML()).isEqualTo("XML");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getRoleArn()).isEqualTo("RoleARN");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getUserIdAttribute()).isEqualTo("UserAttribute");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getUserGroupAttribute())
         .isEqualTo("UserGroupAttribute");
-    assertThat(resultModel.getEndpoints().size()).isEqualTo(1);
-    assertThat(resultModel.getEndpoints().get(0).getEndpoint()).isEqualTo("Endpoint");
-    assertThat(resultModel.getEndpoints().get(0).getType()).isEqualTo("Type");
+    assertThat(resultModel.getDefaultEndpoint()).isEqualTo("Endpoint");
 
     var tags = resultModel.getTags().stream().map(tag -> Map.entry(tag.getKey(), tag.getValue())).toList();
     assertThat(tags).isEqualTo(List.of(
@@ -161,17 +157,17 @@ public class ReadHandlerTest extends AbstractTestBase {
   @Test
   public void handleRequest_SimpleSuccess_withMissingProperties() {
     // set up test scenario
-    when(proxyClient.client().getWebExperience(any(GetWebExperienceRequest.class)))
+    when(sdkClient.getWebExperience(any(GetWebExperienceRequest.class)))
         .thenReturn(GetWebExperienceResponse.builder()
             .applicationId(APP_ID)
             .webExperienceId(WEB_EXPERIENCE_ID)
             .title("This is a title of the web experience.")
             .status(WebExperienceStatus.ACTIVE)
             .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-                .samlConfigurationOptions(software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+                .samlConfiguration(software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
                     .metadataXML("XML")
                     .roleArn("RoleARN")
-                    .userAttribute("UserAttribute")
+                    .userIdAttribute("UserAttribute")
                     .userGroupAttribute("UserGroupAttribute")
                     .build())
                 .build())
@@ -195,14 +191,14 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(resultModel.getCreatedAt()).isNull();
     assertThat(resultModel.getUpdatedAt()).isNull();
     assertThat(resultModel.getSubtitle()).isNull();
-    assertThat(resultModel.getEndpoints()).isEmpty();
+    assertThat(resultModel.getDefaultEndpoint()).isNull();
     assertThat(resultModel.getTitle()).isEqualTo("This is a title of the web experience.");
     assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
     assertThat(resultModel.getWebExperienceId()).isEqualTo(WEB_EXPERIENCE_ID);
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getMetadataXML()).isEqualTo("XML");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getRoleArn()).isEqualTo("RoleARN");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getUserAttribute()).isEqualTo("UserAttribute");
-    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfigurationOptions().getUserGroupAttribute())
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getMetadataXML()).isEqualTo("XML");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getRoleArn()).isEqualTo("RoleARN");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getUserIdAttribute()).isEqualTo("UserAttribute");
+    assertThat(resultModel.getAuthenticationConfiguration().getSamlConfiguration().getUserGroupAttribute())
         .isEqualTo("UserGroupAttribute");
   }
 
@@ -240,7 +236,7 @@ public class ReadHandlerTest extends AbstractTestBase {
       QBusinessException serviceError,
       HandlerErrorCode cfnErrorCode) {
     // set up test scenario
-    when(proxyClient.client().getWebExperience(any(GetWebExperienceRequest.class)))
+    when(sdkClient.getWebExperience(any(GetWebExperienceRequest.class)))
         .thenReturn(GetWebExperienceResponse.builder()
             .applicationId(APP_ID)
             .webExperienceId(WEB_EXPERIENCE_ID)
@@ -250,20 +246,17 @@ public class ReadHandlerTest extends AbstractTestBase {
             .subtitle("This is a subtitle of the web experience.")
             .status(WebExperienceStatus.ACTIVE)
             .authenticationConfiguration(software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-                .samlConfigurationOptions(software.amazon.awssdk.services.qbusiness.model.SamlConfigurationOptions.builder()
+                .samlConfiguration(software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
                     .metadataXML("XML")
                     .roleArn("RoleARN")
-                    .userAttribute("UserAttribute")
+                    .userIdAttribute("UserAttribute")
                     .userGroupAttribute("UserGroupAttribute")
                     .build())
                 .build())
-            .endpoints(List.of(software.amazon.awssdk.services.qbusiness.model.WebExperienceEndpointConfig.builder()
-                .endpoint("Endpoint")
-                .type("Type")
-                .build()))
+            .defaultEndpoint("Endpoint")
             .build());
 
-    when(proxyClient.client().listTagsForResource(any(ListTagsForResourceRequest.class)))
+    when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class)))
         .thenThrow(serviceError);
 
     // call method under test
@@ -274,6 +267,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     // verify
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
     verify(sdkClient).getWebExperience(any(GetWebExperienceRequest.class));
+    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
     assertThat(responseProgress.getResourceModels()).isNull();
   }

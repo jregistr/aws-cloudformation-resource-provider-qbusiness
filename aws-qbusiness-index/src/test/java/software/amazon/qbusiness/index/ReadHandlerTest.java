@@ -101,7 +101,7 @@ public class ReadHandlerTest extends AbstractTestBase {
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .description("This is a description of the index.")
-            .name("IndexName")
+            .displayName("IndexName")
             .status(IndexStatus.ACTIVE)
             .indexStatistics(software.amazon.awssdk.services.qbusiness.model.IndexStatistics.builder()
                 .textDocumentStatistics(software.amazon.awssdk.services.qbusiness.model.TextDocumentStatistics.builder()
@@ -141,7 +141,7 @@ public class ReadHandlerTest extends AbstractTestBase {
     assertThat(responseProgress.getMessage()).isNull();
     assertThat(responseProgress.getErrorCode()).isNull();
     ResourceModel resultModel = responseProgress.getResourceModel();
-    assertThat(resultModel.getName()).isEqualTo("IndexName");
+    assertThat(resultModel.getDisplayName()).isEqualTo("IndexName");
     assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
     assertThat(resultModel.getIndexId()).isEqualTo(INDEX_ID);
     assertThat(resultModel.getCreatedAt()).isEqualTo("2023-10-20T18:02:15Z");
@@ -172,7 +172,7 @@ public class ReadHandlerTest extends AbstractTestBase {
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .description("This is a description of the index.")
-            .name("IndexName")
+            .displayName("IndexName")
             .status(IndexStatus.ACTIVE)
             .indexStatistics(software.amazon.awssdk.services.qbusiness.model.IndexStatistics.builder().build())
             .build());
@@ -238,7 +238,7 @@ public class ReadHandlerTest extends AbstractTestBase {
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
             .description("This is a description of the index.")
-            .name("IndexName")
+            .displayName("IndexName")
             .status(IndexStatus.ACTIVE)
             .indexStatistics(software.amazon.awssdk.services.qbusiness.model.IndexStatistics.builder()
                 .textDocumentStatistics(software.amazon.awssdk.services.qbusiness.model.TextDocumentStatistics.builder()

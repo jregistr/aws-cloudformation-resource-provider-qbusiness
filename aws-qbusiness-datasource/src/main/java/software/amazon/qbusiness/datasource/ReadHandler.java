@@ -1,6 +1,7 @@
 package software.amazon.qbusiness.webexperience;
 
-import software.amazon.awssdk.core.SdkClient;
+import static software.amazon.qbusiness.webexperience.Constants.API_GET_WEB_EXPERIENCE;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceRequest;
 import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
@@ -9,8 +10,6 @@ import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import static software.amazon.qbusiness.webexperience.Constants.API_GET_WEB_EXPERIENCE;
 
 public class ReadHandler extends BaseHandlerStd {
   private Logger logger;
@@ -26,7 +25,8 @@ public class ReadHandler extends BaseHandlerStd {
     this.logger = logger;
 
     this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, WebExperienceId: %s] Entering Read Handler"
-        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getWebExperienceId()));
+        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(),
+            request.getDesiredResourceState().getWebExperienceId()));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
