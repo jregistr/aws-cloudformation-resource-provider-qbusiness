@@ -1,12 +1,16 @@
-package software.amazon.qbusiness.retriever;
+package software.amazon.qbusiness.application;
 
-import static software.amazon.qbusiness.retriever.Constants.API_CREATE_RETRIEVER;
+import static software.amazon.qbusiness.application.Constants.API_CREATE_APPLICATION;
 
 import java.time.Duration;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverRequest;
-import software.amazon.awssdk.services.qbusiness.model.CreateRetrieverResponse;
+import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
+import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
+import software.amazon.awssdk.utils.StringUtils;
+import software.amazon.cloudformation.exceptions.CfnNotStabilizedException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -18,8 +22,9 @@ public class CreateHandler extends BaseHandlerStd {
 
   private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
       .timeout(Duration.ofHours(4))
-      .delay(Duration.ofMinutes(2))
+      .delay(Duration.ofSeconds(30))
       .build();
+
   private final Constant backOffStrategy;
   private Logger logger;
 
@@ -39,29 +44,59 @@ public class CreateHandler extends BaseHandlerStd {
       final Logger logger) {
 
     this.logger = logger;
-    this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, RetrieverId: %s] Entering Create Handler"
-        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getRetrieverId()));
+    logger.log("[INFO] Starting to process Create Application request in stack: %s for Account: %s"
+        .formatted(request.getStackId(), request.getAwsAccountId()));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-Retriever::Create", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+            proxy.initiate("AWS-QBusiness-Application::Create", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
                 .translateToServiceRequest(model -> Translator.translateToCreateRequest(request.getClientRequestToken(), model))
                 .backoffDelay(backOffStrategy)
-                .makeServiceCall((awsRequest, clientProxyClient) -> callCreateRetriever(awsRequest, clientProxyClient, progress.getResourceModel()))
-                .handleError((createRetrieverRequest, error, client, model, context) ->
-                    handleError(createRetrieverRequest, model, error, context, logger, API_CREATE_RETRIEVER))
+                .makeServiceCall((awsRequest, clientProxyClient) -> callCreateApplication(awsRequest, clientProxyClient, progress.getResourceModel()))
+                .stabilize((awsReq, response, clientProxyClient, model, context) -> isStabilized(clientProxyClient, model, logger))
+                .handleError((createReq, error, client, model, context) ->
+                    handleError(createReq, model, error, context, logger, API_CREATE_APPLICATION))
                 .progress()
-        )
-        .then(progress ->
+        ).then(progress ->
             new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger)
         );
   }
 
-  private CreateRetrieverResponse callCreateRetriever(CreateRetrieverRequest request,
-      ProxyClient<QBusinessClient> client,
+  private boolean isStabilized(
+      ProxyClient<QBusinessClient> proxyClient,
+      ResourceModel model,
+      Logger logger
+  ) {
+    GetApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
+
+    var status = getAppResponse.statusAsString();
+
+    if (ApplicationStatus.ACTIVE.toString().equals(status)) {
+      logger.log("[INFO] %s with ID: %s has stabilized".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+      return true;
+    }
+
+    if (!ApplicationStatus.FAILED.toString().equals(status)) {
+      logger.log("[INFO] %s with ID: %s is still stabilizing.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+      return false;
+    }
+
+    // handle failed state
+
+    RuntimeException causeMessage = null;
+    if (StringUtils.isNotBlank(getAppResponse.errorMessage())) {
+      causeMessage = new RuntimeException(getAppResponse.errorMessage());
+    }
+
+    throw new CfnNotStabilizedException(ResourceModel.TYPE_NAME, model.getApplicationId(), causeMessage);
+  }
+
+  private CreateApplicationResponse callCreateApplication(CreateApplicationRequest request,
+      ProxyClient<QBusinessClient> proxyClient,
       ResourceModel model) {
-    CreateRetrieverResponse response = client.injectCredentialsAndInvokeV2(request, client.client()::createRetriever);
-    model.setRetrieverId(response.retrieverId());
+    var client = proxyClient.client();
+    CreateApplicationResponse response = proxyClient.injectCredentialsAndInvokeV2(request, client::createApplication);
+    model.setApplicationId(response.applicationId());
     return response;
   }
 }

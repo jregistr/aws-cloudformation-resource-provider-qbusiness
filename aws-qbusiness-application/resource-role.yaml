@@ -30,9 +30,13 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                - "iam:PassRole"
+                - "kms:CreateGrant"
+                - "kms:DescribeKey"
+                - "kms:RetireGrant"
                 - "qbusiness:CreateApplication"
                 - "qbusiness:DeleteApplication"
-                - "qbusiness:DescribeApplication"
+                - "qbusiness:GetApplication"
                 - "qbusiness:ListApplications"
                 - "qbusiness:ListTagsForResource"
                 - "qbusiness:TagResource"

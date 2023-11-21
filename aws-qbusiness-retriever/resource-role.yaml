@@ -30,6 +30,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                - "iam:PassRole"
                 - "qbusiness:CreateRetriever"
                 - "qbusiness:DeleteRetriever"
                 - "qbusiness:GetRetriever"
@@ -38,7 +39,6 @@ Resources:
                 - "qbusiness:TagResource"
                 - "qbusiness:UntagResource"
                 - "qbusiness:UpdateRetriever"
-                - "iam:PassRole"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:

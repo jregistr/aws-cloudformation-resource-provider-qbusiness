@@ -1,4 +1,9 @@
-package software.amazon.qbusiness.datasource;
+package software.amazon.qbusiness.retriever;
+
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -8,13 +13,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang3.ObjectUtils;
-
-import software.amazon.awssdk.services.qbusiness.model.Tag;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class TagHelper {
   /**
@@ -28,15 +26,15 @@ public class TagHelper {
    * @param tags Collection of tags to convert
    * @return Converted Map of tags
    */
-  public static Map<String, String> convertToMap(final Collection<software.amazon.qbusiness.datasource.Tag> tags) {
+  public static Map<String, String> convertToMap(final Collection<software.amazon.qbusiness.retriever.Tag> tags) {
     if (CollectionUtils.isEmpty(tags)) {
       return Collections.emptyMap();
     }
     return tags.stream()
         .filter(tag -> tag.getValue() != null)
         .collect(Collectors.toMap(
-            software.amazon.qbusiness.datasource.Tag::getKey,
-            software.amazon.qbusiness.datasource.Tag::getValue,
+            software.amazon.qbusiness.retriever.Tag::getKey,
+            software.amazon.qbusiness.retriever.Tag::getValue,
             (oldValue, newValue) -> newValue));
   }
 
@@ -61,29 +59,6 @@ public class TagHelper {
             .value(tag.getValue())
             .build())
         .collect(Collectors.toSet());
-  }
-
-  public static List<software.amazon.qbusiness.datasource.Tag> cfnTagsFromServiceTags(
-      List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
-  ) {
-    return serviceTags.stream()
-        .map(serviceTag -> new software.amazon.qbusiness.datasource.Tag(serviceTag.key(), serviceTag.value()))
-        .toList();
-  }
-
-  public static List<Tag> serviceTagsFromCfnTags(
-      Collection<software.amazon.qbusiness.datasource.Tag> modelTags
-  ) {
-    if (modelTags == null) {
-      return null;
-    }
-
-    return modelTags.stream()
-        .map(tag -> Tag.builder()
-            .key(tag.getKey())
-            .value(tag.getValue())
-            .build()
-        ).toList();
   }
 
   /**
@@ -124,7 +99,6 @@ public class TagHelper {
     if (handlerRequest.getPreviousResourceState() != null && handlerRequest.getPreviousResourceState().getTags() != null) {
       previousTags.putAll(convertToMap(handlerRequest.getPreviousResourceState().getTags()));
     }
-
     return previousTags;
   }
 
@@ -152,10 +126,7 @@ public class TagHelper {
       desiredTags.putAll(handlerRequest.getDesiredResourceTags());
     }
 
-    // if tags are not null
-    if (handlerRequest.getDesiredResourceState().getTags() != null) {
-      desiredTags.putAll(convertToMap(handlerRequest.getDesiredResourceState().getTags()));
-    }
+    desiredTags.putAll(convertToMap(handlerRequest.getDesiredResourceState().getTags())); // if tags are not null
     return desiredTags;
   }
 
@@ -183,6 +154,28 @@ public class TagHelper {
     return previousTags.keySet().stream()
         .filter(tagName -> !desiredTagNames.contains(tagName))
         .collect(Collectors.toSet());
+  }
+
+  public static List<software.amazon.qbusiness.retriever.Tag> cfnTagsFromServiceTags(
+      List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
+  ) {
+    return serviceTags.stream()
+        .map(serviceTag -> new software.amazon.qbusiness.retriever.Tag(serviceTag.key(), serviceTag.value()))
+        .toList();
+  }
+
+  public static List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTagsFromCfnTags(
+      Collection<software.amazon.qbusiness.retriever.Tag> modelTags
+  ) {
+    if (modelTags == null) {
+      return null;
+    }
+    return modelTags.stream()
+        .map(tag -> software.amazon.awssdk.services.qbusiness.model.Tag.builder()
+            .key(tag.getKey())
+            .value(tag.getValue())
+            .build()
+        ).toList();
   }
 
 }

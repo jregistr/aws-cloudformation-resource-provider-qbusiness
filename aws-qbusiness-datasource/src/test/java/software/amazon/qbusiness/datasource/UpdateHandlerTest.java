@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.datasource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,18 +30,19 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
-import software.amazon.awssdk.services.qbusiness.model.AttachmentsControlMode;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.AttributeValueOperator;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceStatus;
+import software.amazon.awssdk.services.qbusiness.model.DocumentContentOperator;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceResponse;
-import software.amazon.awssdk.services.qbusiness.model.UpdateApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.UpdateApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.UpdateDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateDataSourceResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
@@ -50,7 +51,11 @@ import software.amazon.cloudformation.proxy.delay.Constant;
 
 public class UpdateHandlerTest extends AbstractTestBase {
 
-  private static final String APP_ID = "a256a36f-7ae8-47c9-b794-5bb67b78a580";
+  private static final String APP_ID = "2a18a774-ddd5-487f-a223-0dbe8e2794a9";
+  private static final String INDEX_ID = "6550e001-86a0-400f-b3f2-d9e69a474c7f";
+  private static final String DATA_SOURCE_ID = "704419db-fbb0-4091-9211-cdf2d45ee4d2";
+
+  private static final String ACCOUNT_ID = "111333444555";
 
   private AmazonWebServicesClientProxy proxy;
 
@@ -58,38 +63,49 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
   @Mock
   private QBusinessClient sdkClient;
+
   private AutoCloseable testMocks;
+
+  private TagHelper tagHelper;
+
+  private UpdateHandler underTest;
+
   private ResourceHandlerRequest<ResourceModel> testRequest;
   private ResourceModel previousModel;
   private ResourceModel updateModel;
-  private Constant backOffStrategy;
-  private TagHelper tagHelper;
-  private UpdateHandler underTest;
 
   @BeforeEach
   public void setup() {
     testMocks = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
+    sdkClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, sdkClient);
 
-    backOffStrategy = Constant.of()
+    tagHelper = spy(new TagHelper());
+    underTest = new UpdateHandler(Constant.of()
         .delay(Duration.ofSeconds(5))
         .timeout(Duration.ofSeconds(45))
-        .build();
-    tagHelper = spy(new TagHelper());
-
-    underTest = new UpdateHandler(backOffStrategy, tagHelper);
+        .build(),
+        tagHelper
+    );
 
     previousModel = ResourceModel.builder()
-        .displayName("Name of Me")
         .applicationId(APP_ID)
-        .description("This is a description")
-        .createdAt("2023-10-20T18:02:15Z")
-        .updatedAt("2023-10-20T22:02:15Z")
-        .roleArn("what-a-role")
-        .status(ApplicationStatus.ACTIVE.name())
-        .attachmentsConfiguration(AttachmentsConfiguration.builder()
-            .attachmentsControlMode(AttachmentsControlMode.DISABLED.toString())
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
+        .schedule("0 11 * * 4")
+        .displayName("oldname")
+        .description("old desc")
+        .roleArn("old role")
+        .configuration(DataSourceConfiguration.builder()
+            .templateConfiguration(TemplateConfiguration.builder()
+                .template(Map.of(
+                    "depth", 10,
+                    "thing", Map.of(
+                        "a", 5
+                    )
+                ))
+                .build())
             .build()
         )
         .tags(List.of(
@@ -101,11 +117,21 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
     updateModel = ResourceModel.builder()
         .applicationId(APP_ID)
-        .displayName("New Phone Who dis")
-        .description("It's a new description")
-        .roleArn("now-better-role")
-        .attachmentsConfiguration(AttachmentsConfiguration.builder()
-            .attachmentsControlMode(AttachmentsControlMode.ENABLED.toString())
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
+        .schedule("0 12 * * 1")
+        .displayName("new-name")
+        .description("new desc")
+        .roleArn("new role")
+        .configuration(DataSourceConfiguration.builder()
+            .templateConfiguration(TemplateConfiguration.builder()
+                .template(Map.of(
+                    "depth", 10,
+                    "thing", Map.of(
+                        "a", 5
+                    )
+                ))
+                .build())
             .build()
         )
         .tags(List.of(
@@ -113,15 +139,29 @@ public class UpdateHandlerTest extends AbstractTestBase {
             Tag.builder().key("iwillchange").value("nowanewvalue").build(),
             Tag.builder().key("iamnew").value("overhere").build()
         ))
+        .customDocumentEnrichmentConfiguration(DocumentEnrichmentConfiguration.builder()
+            .inlineConfigurations(List.of(InlineDocumentEnrichmentConfiguration.builder()
+                .documentContentOperator(DocumentContentOperator.DELETE.toString())
+                .target(DocumentAttributeTarget.builder()
+                    .attributeValueOperator(AttributeValueOperator.DELETE.toString())
+                    .key("Keykey")
+                    .value(DocumentAttributeValue.builder().longValue(50D).build())
+                    .build()
+                )
+                .build()
+            ))
+            .build()
+        )
         .build();
 
     testRequest = ResourceHandlerRequest.<ResourceModel>builder()
-        .awsAccountId("123456")
+        .awsAccountId(ACCOUNT_ID)
         .awsPartition("aws")
         .region("us-east-1")
         .stackId("Stack1")
         .systemTags(Map.of(
-            "aws::cloudformation::created", "onthisday"
+            "aws::cloudformation::created", "onthisday",
+            "aws::cloudformation::nowupdated", "thismoment"
         ))
         .previousSystemTags(Map.of(
             "aws::cloudformation::created", "onthisday"
@@ -140,19 +180,22 @@ public class UpdateHandlerTest extends AbstractTestBase {
         .desiredResourceState(updateModel)
         .build();
 
-    when(sdkClient.updateApplication(any(UpdateApplicationRequest.class)))
-        .thenReturn(UpdateApplicationResponse.builder().build());
+    when(sdkClient.updateDataSource(any(UpdateDataSourceRequest.class)))
+        .thenReturn(UpdateDataSourceResponse.builder().build());
     when(sdkClient.tagResource(any(TagResourceRequest.class)))
         .thenReturn(TagResourceResponse.builder().build());
     when(sdkClient.untagResource(any(UntagResourceRequest.class)))
         .thenReturn(UntagResourceResponse.builder().build());
-    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(GetApplicationResponse.builder()
-            .applicationId(APP_ID)
-            .status(ApplicationStatus.ACTIVE)
-            .build());
     when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class)))
         .thenReturn(ListTagsForResourceResponse.builder().tags(List.of()).build());
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenReturn(
+        GetDataSourceResponse.builder()
+            .applicationId(APP_ID)
+            .indexId(INDEX_ID)
+            .dataSourceId(DATA_SOURCE_ID)
+            .status(DataSourceStatus.ACTIVE)
+            .build()
+    );
   }
 
   @AfterEach
@@ -172,35 +215,38 @@ public class UpdateHandlerTest extends AbstractTestBase {
     // verify
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
-    ArgumentCaptor<UpdateApplicationRequest> updateAppReqCaptor = ArgumentCaptor.forClass(UpdateApplicationRequest.class);
-    verify(sdkClient).updateApplication(updateAppReqCaptor.capture());
-    var updateAppRequest = updateAppReqCaptor.getValue();
-    assertThat(updateAppRequest.applicationId()).isEqualTo(APP_ID);
-    assertThat(updateAppRequest.displayName()).isEqualTo("New Phone Who dis");
-    assertThat(updateAppRequest.description()).isEqualTo("It's a new description");
-    assertThat(updateAppRequest.roleArn()).isEqualTo("now-better-role");
-    assertThat(updateAppRequest.attachmentsConfiguration()).isEqualTo(software.amazon.awssdk.services.qbusiness.model.AttachmentsConfiguration.builder()
-        .attachmentsControlMode(AttachmentsControlMode.ENABLED)
-        .build());
 
-    verify(sdkClient, times(2)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
-    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
-
+    var updateReqCaptor = ArgumentCaptor.forClass(UpdateDataSourceRequest.class);
     var tagReqCaptor = ArgumentCaptor.forClass(TagResourceRequest.class);
     var untagReqCaptor = ArgumentCaptor.forClass(UntagResourceRequest.class);
+    verify(sdkClient).updateDataSource(updateReqCaptor.capture());
     verify(sdkClient).tagResource(tagReqCaptor.capture());
     verify(sdkClient).untagResource(untagReqCaptor.capture());
+    verify(sdkClient, times(2)).getDataSource(argThat(getAppMatcher()));
+    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+    verify(tagHelper).shouldUpdateTags(any());
+
+    var updateReqArgument = updateReqCaptor.getValue();
+    assertThat(updateReqArgument.schedule()).isEqualTo(updateModel.getSchedule());
+    assertThat(updateReqArgument.displayName()).isEqualTo(updateModel.getDisplayName());
+    assertThat(updateReqArgument.description()).isEqualTo(updateModel.getDescription());
+    assertThat(updateReqArgument.roleArn()).isEqualTo(updateModel.getRoleArn());
+
+    var updateInlineConf = updateReqArgument.customDocumentEnrichmentConfiguration().inlineConfigurations().get(0);
+    assertThat(updateInlineConf.documentContentOperator()).isEqualTo(DocumentContentOperator.DELETE);
 
     var tagResourceRequest = tagReqCaptor.getValue();
     Map<String, String> tagsInTagResourceReq = tagResourceRequest.tags().stream()
-        .collect(Collectors.toMap(tag -> tag.key(), tag -> tag.value()));
+        .collect(Collectors.toMap(
+            software.amazon.awssdk.services.qbusiness.model.Tag::key,
+            software.amazon.awssdk.services.qbusiness.model.Tag::value
+        ));
     assertThat(tagsInTagResourceReq).containsOnly(
         Map.entry("iwillchange", "nowanewvalue"),
         Map.entry("iamnew", "overhere"),
         Map.entry("stackchange", "whatwhenwhere"),
-        Map.entry("stacknewaddition", "newvalue")
+        Map.entry("stacknewaddition", "newvalue"),
+        Map.entry("aws::cloudformation::nowupdated", "thismoment")
     );
 
     var untagResourceReq = untagReqCaptor.getValue();
@@ -227,6 +273,13 @@ public class UpdateHandlerTest extends AbstractTestBase {
         "stacksame", "value"
     ));
 
+    testRequest.setSystemTags(Map.of(
+        "aws::cloudformation::created", "onthisday"
+    ));
+    testRequest.setPreviousSystemTags(Map.of(
+        "aws::cloudformation::created", "onthisday"
+    ));
+
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
         proxy, testRequest, new CallbackContext(), proxyClient, logger
@@ -235,10 +288,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     // verify
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
-    verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
-    verify(sdkClient, times(2)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
+    verify(sdkClient).updateDataSource(any(UpdateDataSourceRequest.class));
+    verify(sdkClient, times(2)).getDataSource(argThat(getAppMatcher()));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     verify(tagHelper).shouldUpdateTags(any());
   }
@@ -291,10 +342,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     // verify
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
-    verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
-    verify(sdkClient, times(2)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
+    verify(sdkClient).updateDataSource(any(UpdateDataSourceRequest.class));
+    verify(sdkClient, times(2)).getDataSource(argThat(getAppMatcher()));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
     verify(tagHelper).shouldUpdateTags(any());
   }
@@ -308,11 +357,20 @@ public class UpdateHandlerTest extends AbstractTestBase {
     testRequest.setDesiredResourceTags(Map.of(
         "stacksame", "newValue"
     ));
+
     previousModel.setTags(List.of(
         Tag.builder().key("datTag").value("valuea").build()
     ));
     updateModel.setTags(List.of(
         Tag.builder().key("datTag").value("valueb").build()
+    ));
+
+    testRequest.setPreviousSystemTags(Map.of(
+        "aws::cloudformation::created", "onthisday"
+    ));
+
+    testRequest.setSystemTags(Map.of(
+        "aws::cloudformation::created", "onthisday-new-day"
     ));
 
     // call method under test
@@ -323,11 +381,9 @@ public class UpdateHandlerTest extends AbstractTestBase {
     // verify
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
-    verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
+    verify(sdkClient).updateDataSource(any(UpdateDataSourceRequest.class));
 
-    verify(sdkClient, times(2)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
+    verify(sdkClient, times(2)).getDataSource(argThat(getAppMatcher()));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
     var tagReqCaptor = ArgumentCaptor.forClass(TagResourceRequest.class);
@@ -339,7 +395,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
     assertThat(tagsAddedInReq.entrySet()).isEqualTo(Set.of(
         Map.entry("stacksame", "newValue"),
-        Map.entry("datTag", "valueb")
+        Map.entry("datTag", "valueb"),
+        Map.entry("aws::cloudformation::created", "onthisday-new-day")
     ));
   }
 
@@ -353,11 +410,21 @@ public class UpdateHandlerTest extends AbstractTestBase {
     updateModel.setTags(List.of(
         Tag.builder().key("remain").value("thesame").build()
     ));
+
     testRequest.setPreviousResourceTags(Map.of(
         "stacksame", "value"
     ));
     testRequest.setDesiredResourceTags(Map.of(
         "stacksame", "value"
+    ));
+
+    testRequest.setPreviousSystemTags(Map.of(
+        "aws::cloudformation::created", "onthisday",
+        "aws::cloudformation::update", "otherthere"
+    ));
+
+    testRequest.setSystemTags(Map.of(
+        "aws::cloudformation::created", "onthisday"
     ));
 
     // call method under test
@@ -368,10 +435,8 @@ public class UpdateHandlerTest extends AbstractTestBase {
     // verify
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
-    verify(sdkClient).updateApplication(any(UpdateApplicationRequest.class));
-    verify(sdkClient, times(2)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
+    verify(sdkClient).updateDataSource(any(UpdateDataSourceRequest.class));
+    verify(sdkClient, times(2)).getDataSource(argThat(getAppMatcher()));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
 
     var untagReqCaptor = ArgumentCaptor.forClass(UntagResourceRequest.class);
@@ -380,7 +445,10 @@ public class UpdateHandlerTest extends AbstractTestBase {
     verify(sdkClient, times(0)).tagResource(any(TagResourceRequest.class));
 
     var untagReq = untagReqCaptor.getValue();
-    assertThat(untagReq.tagKeys()).isEqualTo(List.of("toBeRemove"));
+    assertThat(untagReq.tagKeys()).isEqualTo(List.of("toBeRemove", "aws::cloudformation::update"));
   }
 
+  private ArgumentMatcher<GetDataSourceRequest> getAppMatcher() {
+    return t -> t.applicationId().equals(APP_ID) && t.indexId().equals(INDEX_ID) && t.dataSourceId().equals(DATA_SOURCE_ID);
+  }
 }

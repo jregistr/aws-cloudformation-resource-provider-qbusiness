@@ -1,4 +1,10 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.webexperience;
+
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
+import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -8,13 +14,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang3.ObjectUtils;
-
-import software.amazon.awssdk.services.qbusiness.model.Tag;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class TagHelper {
   /**
@@ -28,18 +27,16 @@ public class TagHelper {
    * @param tags Collection of tags to convert
    * @return Converted Map of tags
    */
-  public static Map<String, String> convertToMap(final Collection<software.amazon.qbusiness.application.Tag> tags) {
+  public static Map<String, String> convertToMap(final Collection<software.amazon.qbusiness.webexperience.Tag> tags) {
     if (CollectionUtils.isEmpty(tags)) {
       return Collections.emptyMap();
     }
-
     return tags.stream()
         .filter(tag -> tag.getValue() != null)
         .collect(Collectors.toMap(
-            software.amazon.qbusiness.application.Tag::getKey,
-            software.amazon.qbusiness.application.Tag::getValue,
-            (oldValue, newValue) -> newValue)
-        );
+            software.amazon.qbusiness.webexperience.Tag::getKey,
+            software.amazon.qbusiness.webexperience.Tag::getValue,
+            (oldValue, newValue) -> newValue));
   }
 
   /**
@@ -65,17 +62,14 @@ public class TagHelper {
         .collect(Collectors.toSet());
   }
 
-  public static List<software.amazon.qbusiness.application.Tag> cfnTagsFromServiceTags(
-      List<Tag> serviceTags
-  ) {
-    return serviceTags.stream()
-        .map(serviceTag -> new software.amazon.qbusiness.application.Tag(serviceTag.key(), serviceTag.value()))
-        .toList();
-  }
-
+  /**
+   * Converts model tags to a list of Tag objects.
+   *
+   * @param modelTags Collection of model tags
+   * @return List of Tag objects
+   */
   public static List<Tag> serviceTagsFromCfnTags(
-      Collection<software.amazon.qbusiness.application.Tag> modelTags
-  ) {
+      final Collection<software.amazon.qbusiness.webexperience.Tag> modelTags) {
     if (modelTags == null) {
       return null;
     }
@@ -106,9 +100,11 @@ public class TagHelper {
    * handlerRequest.getPreviousSystemTags() (system tags),
    * handlerRequest.getPreviousResourceTags() (stack tags),
    * handlerRequest.getPreviousResourceState().getTags() (resource tags).
+   * </p>
    * <p>
    * System tags are an optional feature. Merge them to your tags if you have enabled them for your resource.
    * System tags can change on resource update if the resource is imported to the stack.
+   * </p>
    */
   public Map<String, String> getPreviouslyAttachedTags(final ResourceHandlerRequest<ResourceModel> handlerRequest) {
     final Map<String, String> previousTags = new HashMap<>();
@@ -182,4 +178,16 @@ public class TagHelper {
         .collect(Collectors.toSet());
   }
 
+  /**
+   * Get model tags from service tags.
+   *
+   * @param serviceTags List of service tags
+   * @return List of model tags
+   */
+  public static List<software.amazon.qbusiness.webexperience.Tag> modelTagsFromServiceTags(final List<Tag> serviceTags) {
+    return serviceTags.stream()
+        .map(serviceTag -> new software.amazon.qbusiness.webexperience.Tag(serviceTag.key(), serviceTag.value())
+        )
+        .toList();
+  }
 }

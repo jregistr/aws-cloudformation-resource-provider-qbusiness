@@ -1,4 +1,24 @@
-package software.amazon.qbusiness.plugin;
+package software.amazon.qbusiness.webexperience;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatcher;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesResponse;
+import software.amazon.awssdk.services.qbusiness.model.WebExperience;
+import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
+import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
+import software.amazon.cloudformation.proxy.ProgressEvent;
+import software.amazon.cloudformation.proxy.ProxyClient;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,49 +27,22 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatcher;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ListPluginsRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListPluginsResponse;
-import software.amazon.awssdk.services.qbusiness.model.Plugin;
-import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
-import software.amazon.cloudformation.proxy.ProgressEvent;
-import software.amazon.cloudformation.proxy.ProxyClient;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
 public class ListHandlerTest extends AbstractTestBase {
 
-  private static final String APPLICATION_ID = "ApplicationId";
-  private static final String PLUGIN_ID = "PluginId";
-  private static final String PLUGIN_NAME = "PluginName";
-  private static final String PLUGIN_TYPE = "JIRA";
-  private static final String PLUGIN_STATE = "ACTIVE";
-  private static final String SERVER_URL = "ServerUrl";
-  private static final String NEXT_TOKEN = "next-token";
-  private static final Long CREATED_TIME = 1697824935000L;
-  private static final Long UPDATED_TIME = 1697839335000L;
+  private static final String APP_ID = "63451660-1596-4f1a-a3c8-e5f4b33d9fe5";
+  private static final String TEST_NEXT_TOKEN = "this-is-next-token";
 
-  @Mock
   private AmazonWebServicesClientProxy proxy;
-  @Mock
   private ProxyClient<QBusinessClient> proxyClient;
+
   @Mock
   private QBusinessClient sdkClient;
 
   private AutoCloseable testMocks;
   private ListHandler underTest;
+  private ResourceModel model;
 
-  private ResourceHandlerRequest<ResourceModel> request;
+  private ResourceHandlerRequest<ResourceModel> testRequest;
 
   @BeforeEach
   public void setup() {
@@ -58,60 +51,69 @@ public class ListHandlerTest extends AbstractTestBase {
     proxyClient = MOCK_PROXY(proxy, sdkClient);
 
     underTest = new ListHandler();
-
-    request = ResourceHandlerRequest.<ResourceModel>builder()
-        .nextToken(NEXT_TOKEN)
-        .desiredResourceState(ResourceModel.builder()
-            .applicationId(APPLICATION_ID)
-            .build())
+    model = ResourceModel.builder()
+        .applicationId(APP_ID)
+        .build();
+    testRequest = ResourceHandlerRequest.<ResourceModel>builder()
+        .nextToken(TEST_NEXT_TOKEN)
+        .desiredResourceState(model)
+        .awsAccountId("123456")
+        .awsPartition("aws")
+        .region("us-east-1")
+        .stackId("Stack1")
         .build();
   }
 
   @AfterEach
-  public void tear_down() throws Exception {
+  public void tearDown() throws Exception {
     verifyNoMoreInteractions(sdkClient);
     testMocks.close();
   }
 
   @Test
   public void handleRequest_SimpleSuccess() {
+    // set up scenario
+    List<String> ids = List.of(
+        "a98163cb-407b-492c-85d7-a96ebc514eac",
+        "db6a3cc2-3de5-4ede-b802-80f107d63ad8",
+        "25e148e0-777d-4f30-b523-1f895c36cf55"
+    );
+    var listWebExperienceSummaries = ids.stream()
+        .map(id -> WebExperience.builder()
+            .webExperienceId(id)
+            .createdAt(Instant.ofEpochMilli(1697824935000L))
+            .updatedAt(Instant.ofEpochMilli(1697839335000L))
+            .defaultEndpoint("Endpoint")
+            .status(WebExperienceStatus.ACTIVE)
+            .build()
+        ).toList();
+    when(sdkClient.listWebExperiences(any(ListWebExperiencesRequest.class)))
+        .thenReturn(ListWebExperiencesResponse.builder()
+            .webExperiences(listWebExperienceSummaries)
+            .build()
+        );
 
-    List<Plugin> pluginSummaries = List.of(Plugin.builder()
-        .pluginId(PLUGIN_ID)
-        .displayName(PLUGIN_NAME)
-        .type(PLUGIN_TYPE)
-        .state(PLUGIN_STATE)
-        .serverUrl(SERVER_URL)
-        .createdAt(Instant.ofEpochMilli(CREATED_TIME))
-        .lastUpdatedAt(Instant.ofEpochMilli(UPDATED_TIME))
-        .build());
-
-    when(proxyClient.client().listPlugins(any(ListPluginsRequest.class)))
-        .thenReturn(ListPluginsResponse.builder()
-            .plugins(pluginSummaries)
-            .nextToken(NEXT_TOKEN)
-            .build());
-
-    final ProgressEvent<ResourceModel, CallbackContext> response = underTest.handleRequest(proxy, request, null,
-        proxyClient, logger);
-
-    assertThat(response).isNotNull();
-    assertThat(response.isSuccess()).isTrue();
-    assertThat(response.getResourceModel()).isNull();
-    assertThat(response.getResourceModels()).isNotEmpty();
-
-    verify(sdkClient).listPlugins(
-        argThat((ArgumentMatcher<ListPluginsRequest>) t -> t.nextToken().equals(NEXT_TOKEN))
+    // call method under test
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
     );
 
-    ResourceModel model = response.getResourceModels().stream().toList().get(0);
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+    assertThat(resultProgress.getResourceModel()).isNull();
+    assertThat(resultProgress.getResourceModels()).isNotEmpty();
 
-    assertThat(model.getPluginId()).isEqualTo(PLUGIN_ID);
-    assertThat(model.getType()).isEqualTo(PLUGIN_TYPE);
-    assertThat(model.getState()).isEqualTo(PLUGIN_STATE);
-    assertThat(model.getDisplayName()).isEqualTo(PLUGIN_NAME);
-    assertThat(model.getCreatedAt()).isEqualTo(Instant.ofEpochMilli(CREATED_TIME).toString());
-    assertThat(model.getLastUpdatedAt()).isEqualTo(Instant.ofEpochMilli(UPDATED_TIME).toString());
+    var modelIds = resultProgress.getResourceModels().stream()
+        .map((resourceModel) -> {
+          assertThat(resourceModel.getApplicationId()).isEqualTo(APP_ID);
+          return resourceModel.getWebExperienceId();
+        })
+        .toList();
+    assertThat(modelIds).isEqualTo(ids);
 
+    verify(sdkClient).listWebExperiences(
+        argThat((ArgumentMatcher<ListWebExperiencesRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN))
+    );
   }
 }

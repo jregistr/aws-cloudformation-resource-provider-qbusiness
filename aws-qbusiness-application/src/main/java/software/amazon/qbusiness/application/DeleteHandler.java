@@ -1,8 +1,13 @@
-package software.amazon.qbusiness.retriever;
+package software.amazon.qbusiness.application;
+
+import static software.amazon.qbusiness.application.Constants.API_DELETE_APPLICATION;
+
+import java.time.Duration;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.DeleteRetrieverRequest;
-import software.amazon.awssdk.services.qbusiness.model.DeleteRetrieverResponse;
+import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -10,12 +15,8 @@ import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
 
-import java.time.Duration;
-
-import static software.amazon.qbusiness.retriever.Constants.API_DELETE_RETRIEVER;
-
-
 public class DeleteHandler extends BaseHandlerStd {
+
   private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
       .timeout(Duration.ofHours(4))
       .delay(Duration.ofMinutes(2))
@@ -40,22 +41,45 @@ public class DeleteHandler extends BaseHandlerStd {
       final Logger logger) {
 
     this.logger = logger;
-    this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, RetrieverId: %s] Entering Delete Handler"
-        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getRetrieverId()));
+
+    logger.log("[INFO] Initiating delete for %s with id: %s in stack: %s".formatted(
+        ResourceModel.TYPE_NAME,
+        request.getDesiredResourceState().getApplicationId(),
+        request.getStackId()
+    ));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-Retriever::Delete", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+            proxy.initiate("AWS-QBusiness-Application::Delete", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
                 .translateToServiceRequest(Translator::translateToDeleteRequest)
-                .makeServiceCall(this::callDeleteRetriever)
-                .handleError((deleteRetrieverRequest, error, client, model, context) ->
-                    handleError(deleteRetrieverRequest, model, error, context, logger, API_DELETE_RETRIEVER))
-                .progress()
-        )
-        .then(progress -> ProgressEvent.defaultSuccessHandler(null));
+                .backoffDelay(backOffStrategy)
+                .makeServiceCall(this::callDeleteApplication)
+                .stabilize((awsRequest, deleteResponse, clientProxyClient, model, context) -> isStabilized(clientProxyClient, model))
+                // See contract tests: https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-test-contract.html
+                // If the resource did not exist before the delete call, a not found is expected.
+                .handleError((awsRequest, error, clientProxyClient, model, context) -> handleError(
+                    awsRequest, model, error, context, logger, API_DELETE_APPLICATION
+                ))
+                .done(deleteResponse -> ProgressEvent.defaultSuccessHandler(null))
+        );
   }
 
-  protected DeleteRetrieverResponse callDeleteRetriever(DeleteRetrieverRequest request, ProxyClient<QBusinessClient> client) {
-    return client.injectCredentialsAndInvokeV2(request, client.client()::deleteRetriever);
+  private DeleteApplicationResponse callDeleteApplication(DeleteApplicationRequest request, ProxyClient<QBusinessClient> proxyClient) {
+    var client = proxyClient.client();
+    return proxyClient.injectCredentialsAndInvokeV2(request, client::deleteApplication);
+  }
+
+  private boolean isStabilized(
+      ProxyClient<QBusinessClient> proxyClient,
+      ResourceModel model
+  ) {
+    try {
+      getApplication(model, proxyClient, logger);
+      // we got a result from Get Application, therefore deletion is still processing.
+      return false;
+    } catch (ResourceNotFoundException e) {
+      logger.log("[Info] Deletion of %s with id: %s has stabilized.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+      return true;
+    }
   }
 }

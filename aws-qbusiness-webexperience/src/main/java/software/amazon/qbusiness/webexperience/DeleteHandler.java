@@ -1,12 +1,9 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.webexperience;
 
-import static software.amazon.qbusiness.application.Constants.API_DELETE_APPLICATION;
-
-import java.time.Duration;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
@@ -14,6 +11,10 @@ import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
+
+import java.time.Duration;
+
+import static software.amazon.qbusiness.webexperience.Constants.API_DELETE_WEB_EXPERIENCE;
 
 public class DeleteHandler extends BaseHandlerStd {
 
@@ -42,31 +43,32 @@ public class DeleteHandler extends BaseHandlerStd {
 
     this.logger = logger;
 
-    logger.log("[INFO] Initiating delete for %s with id: %s in stack: %s".formatted(
+    logger.log("[INFO] Initiating delete for %s with ApplicationId: %s and WebExperienceId: %s in stack: %s".formatted(
         ResourceModel.TYPE_NAME,
         request.getDesiredResourceState().getApplicationId(),
+        request.getDesiredResourceState().getWebExperienceId(),
         request.getStackId()
     ));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-Application::Delete", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+            proxy.initiate("AWS-QBusiness-WebExperience::Delete", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
                 .translateToServiceRequest(Translator::translateToDeleteRequest)
                 .backoffDelay(backOffStrategy)
-                .makeServiceCall(this::callDeleteApplication)
+                .makeServiceCall(this::callDeleteWebExperience)
                 .stabilize((awsRequest, deleteResponse, clientProxyClient, model, context) -> isStabilized(clientProxyClient, model))
                 // See contract tests: https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/resource-type-test-contract.html
                 // If the resource did not exist before the delete call, a not found is expected.
                 .handleError((awsRequest, error, clientProxyClient, model, context) -> handleError(
-                    awsRequest, model, error, context, logger, API_DELETE_APPLICATION
+                    awsRequest, model, error, context, logger, API_DELETE_WEB_EXPERIENCE
                 ))
                 .done(deleteResponse -> ProgressEvent.defaultSuccessHandler(null))
         );
   }
 
-  private DeleteApplicationResponse callDeleteApplication(DeleteApplicationRequest request, ProxyClient<QBusinessClient> proxyClient) {
+  private DeleteWebExperienceResponse callDeleteWebExperience(DeleteWebExperienceRequest request, ProxyClient<QBusinessClient> proxyClient) {
     var client = proxyClient.client();
-    return proxyClient.injectCredentialsAndInvokeV2(request, client::deleteApplication);
+    return proxyClient.injectCredentialsAndInvokeV2(request, client::deleteWebExperience);
   }
 
   private boolean isStabilized(
@@ -74,11 +76,11 @@ public class DeleteHandler extends BaseHandlerStd {
       ResourceModel model
   ) {
     try {
-      getApplication(model, proxyClient, logger);
-      // we got a result from Get Application, therefore deletion is still processing.
+      getWebExperience(model, proxyClient, logger);
+      // we got a result from Get WebExperience, therefore deletion is still processing.
       return false;
     } catch (ResourceNotFoundException e) {
-      logger.log("[Info] Deletion of %s with id: %s has stabilized.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+      logger.log("[Info] Deletion of %s with id: %s has stabilized.".formatted(ResourceModel.TYPE_NAME, model.getPrimaryIdentifier()));
       return true;
     }
   }

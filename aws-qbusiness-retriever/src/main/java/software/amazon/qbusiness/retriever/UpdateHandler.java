@@ -1,15 +1,13 @@
-package software.amazon.qbusiness.webexperience;
+package software.amazon.qbusiness.retriever;
 
 import org.apache.commons.collections4.CollectionUtils;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceResponse;
-import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceRequest;
-import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceResponse;
-import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
+import software.amazon.awssdk.services.qbusiness.model.UpdateRetrieverRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateRetrieverResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -21,15 +19,13 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 
-import static software.amazon.qbusiness.webexperience.Constants.API_UPDATE_WEB_EXPERIENCE;
+import static software.amazon.qbusiness.retriever.Constants.API_UPDATE_RETRIEVER;
 
 public class UpdateHandler extends BaseHandlerStd {
-
-  public static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
-      .timeout(Duration.ofHours(2))
+  private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
+      .timeout(Duration.ofHours(4))
       .delay(Duration.ofMinutes(2))
       .build();
-
   private final Constant backOffStrategy;
   private final TagHelper tagHelper;
   private Logger logger;
@@ -51,30 +47,22 @@ public class UpdateHandler extends BaseHandlerStd {
       final Logger logger) {
 
     this.logger = logger;
-
-    logger.log("[INFO] Starting Update for %s with ApplicationId: %s and WebExperienceId: %s in stack: %s".formatted(
-        ResourceModel.TYPE_NAME,
-        request.getDesiredResourceState().getApplicationId(),
-        request.getDesiredResourceState().getWebExperienceId(),
-        request.getStackId()
-    ));
+    this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, RetrieverId: %s] Entering Update Handler"
+        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getRetrieverId()));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-WebExperience::Update", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+            proxy.initiate("AWS-QBusiness-Retriever::Update", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
                 .translateToServiceRequest(Translator::translateToUpdateRequest)
                 .backoffDelay(backOffStrategy)
-                .makeServiceCall(this::updateWebExperience)
-                .stabilize((serviceRequest, updateWebExperienceResponse, client, model, context) -> isStabilized(client, model))
+                .makeServiceCall(this::callUpdateRetriever)
                 .handleError((serviceRequest, error, client, model, context) -> handleError(
-                    serviceRequest, model, error, context, logger, API_UPDATE_WEB_EXPERIENCE
+                    serviceRequest, model, error, context, logger, API_UPDATE_RETRIEVER
                 ))
-                .progress()
-        )
+                .progress())
         .then(progress -> {
           if (!tagHelper.shouldUpdateTags(request)) {
-            // No updates to tags needed, return early with get application. Since ReadHandler will return Done, this will be the last step
-            return readHandler(proxy, request, callbackContext, proxyClient);
+            return progress;
           }
 
           Map<String, String> tagsToAdd = tagHelper.generateTagsToAdd(
@@ -86,9 +74,10 @@ public class UpdateHandler extends BaseHandlerStd {
             return progress;
           }
 
-          return proxy.initiate(
-                  "AWS-QBusiness-WebExperience::TagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
-              .translateToServiceRequest(model -> Translator.tagResourceRequest(request, model, tagsToAdd))
+          return proxy.initiate("AWS-QBusiness-Retriever::TagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+              .translateToServiceRequest(model -> {
+                return Translator.tagResourceRequest(request, model, tagsToAdd);
+              })
               .makeServiceCall(this::callTagResource)
               .progress();
         })
@@ -102,42 +91,19 @@ public class UpdateHandler extends BaseHandlerStd {
             return progress;
           }
 
-          return proxy.initiate(
-                  "AWS-QBusiness-WebExperience::UnTagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+          return proxy.initiate("AWS-QBusiness-Application::UnTagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
               .translateToServiceRequest(model -> Translator.untagResourceRequest(request, model, tagsToRemove))
               .makeServiceCall(this::callUntagResource)
               .progress();
         })
-        .then(model -> readHandler(proxy, request, callbackContext, proxyClient));
+        .then(progress -> new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger));
   }
 
-  private ProgressEvent<ResourceModel, CallbackContext> readHandler(
-      final AmazonWebServicesClientProxy proxy,
-      final ResourceHandlerRequest<ResourceModel> request,
-      final CallbackContext callbackContext,
-      final ProxyClient<QBusinessClient> proxyClient) {
-    return new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger);
+  private UpdateRetrieverResponse callUpdateRetriever(UpdateRetrieverRequest request, ProxyClient<QBusinessClient> proxyClient) {
+    return proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::updateRetriever);
   }
 
-  private UpdateWebExperienceResponse updateWebExperience(
-      final UpdateWebExperienceRequest request,
-      final ProxyClient<QBusinessClient> proxyClient) {
-    var client = proxyClient.client();
-    return proxyClient.injectCredentialsAndInvokeV2(request, client::updateWebExperience);
-  }
-
-  private boolean isStabilized(
-      final ProxyClient<QBusinessClient> proxyClient,
-      final ResourceModel model) {
-    final GetWebExperienceResponse getWebExperienceResponse = getWebExperience(model, proxyClient, logger);
-    final WebExperienceStatus status = getWebExperienceResponse.status();
-    final boolean hasStabilized = WebExperienceStatus.ACTIVE.equals(status);
-    logger.log("[INFO] %s with ApplicationId: %s and WebExperienceId: %s has stabilized."
-        .formatted(ResourceModel.TYPE_NAME, model.getApplicationId(), model.getWebExperienceId()));
-    return hasStabilized;
-  }
-
-  private TagResourceResponse callTagResource(final TagResourceRequest request, final ProxyClient<QBusinessClient> proxyClient) {
+  private TagResourceResponse callTagResource(TagResourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
     if (!request.hasTags()) {
       return TagResourceResponse.builder().build();
     }
@@ -145,7 +111,7 @@ public class UpdateHandler extends BaseHandlerStd {
     return proxyClient.injectCredentialsAndInvokeV2(request, client::tagResource);
   }
 
-  private UntagResourceResponse callUntagResource(final UntagResourceRequest request, final ProxyClient<QBusinessClient> proxyClient) {
+  private UntagResourceResponse callUntagResource(UntagResourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
     if (!request.hasTagKeys()) {
       return UntagResourceResponse.builder().build();
     }

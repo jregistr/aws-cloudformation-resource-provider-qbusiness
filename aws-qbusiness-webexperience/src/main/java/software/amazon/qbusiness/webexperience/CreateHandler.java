@@ -1,14 +1,12 @@
-package software.amazon.qbusiness.application;
-
-import static software.amazon.qbusiness.application.Constants.API_CREATE_APPLICATION;
-
-import java.time.Duration;
+package software.amazon.qbusiness.webexperience;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
-import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.CreateApplicationResponse;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
+import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceResponse;
+import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
 import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.cloudformation.exceptions.CfnNotStabilizedException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
@@ -18,11 +16,16 @@ import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 import software.amazon.cloudformation.proxy.delay.Constant;
 
+import java.time.Duration;
+
+import static software.amazon.qbusiness.webexperience.Constants.API_CREATE_WEB_EXPERIENCE;
+import static software.amazon.qbusiness.webexperience.Constants.API_UPDATE_WEB_EXPERIENCE;
+
 public class CreateHandler extends BaseHandlerStd {
 
   private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
       .timeout(Duration.ofHours(4))
-      .delay(Duration.ofSeconds(30))
+      .delay(Duration.ofMinutes(2))
       .build();
 
   private final Constant backOffStrategy;
@@ -44,59 +47,94 @@ public class CreateHandler extends BaseHandlerStd {
       final Logger logger) {
 
     this.logger = logger;
-    logger.log("[INFO] Starting to process Create Application request in stack: %s for Account: %s"
-        .formatted(request.getStackId(), request.getAwsAccountId()));
+
+    logger.log("[INFO] Starting to process Create WebExperience request in stack: %s for Account: %s and ApplicationId: %s"
+        .formatted(request.getStackId(), request.getAwsAccountId(), request.getDesiredResourceState().getApplicationId()));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-Application::Create", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+            proxy.initiate("AWS-QBusiness-WebExperience::Create", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
                 .translateToServiceRequest(model -> Translator.translateToCreateRequest(request.getClientRequestToken(), model))
                 .backoffDelay(backOffStrategy)
-                .makeServiceCall((awsRequest, clientProxyClient) -> callCreateApplication(awsRequest, clientProxyClient, progress.getResourceModel()))
+                .makeServiceCall((awsRequest, clientProxyClient) ->
+                    callCreateWebExperience(awsRequest, clientProxyClient, progress.getResourceModel()))
                 .stabilize((awsReq, response, clientProxyClient, model, context) -> isStabilized(clientProxyClient, model, logger))
                 .handleError((createReq, error, client, model, context) ->
-                    handleError(createReq, model, error, context, logger, API_CREATE_APPLICATION))
+                    handleError(createReq, model, error, context, logger, API_CREATE_WEB_EXPERIENCE))
                 .progress()
-        ).then(progress ->
-            new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger)
-        );
+        )
+        .then(progress -> {
+          // if authentication configuration was not set, let's short circuit
+          if (request.getDesiredResourceState().getAuthenticationConfiguration() == null) {
+            return readHandler(proxy, request, callbackContext, proxyClient);
+          }
+
+          // customer has set an authentication configuration, let's set up a call to Update.
+          return proxy.initiate("AWS-QBusiness-WebExperience::PostCreateUpdate",
+                  proxyClient, progress.getResourceModel(), progress.getCallbackContext()
+              )
+              .translateToServiceRequest(Translator::translateToPostCreateUpdateRequest)
+              .backoffDelay(backOffStrategy)
+              .makeServiceCall(this::callUpdateWebExperience)
+              .stabilize((awsReq, response, clientProxyClient, model, context) -> isStabilized(clientProxyClient, model, logger))
+              .handleError((createReq, error, client, model, context) ->
+                  handleError(createReq, model, error, context, logger, API_UPDATE_WEB_EXPERIENCE))
+              .progress();
+        })
+        .then(progress -> readHandler(proxy, request, callbackContext, proxyClient));
+  }
+
+  private ProgressEvent<ResourceModel, CallbackContext> readHandler(
+      final AmazonWebServicesClientProxy proxy,
+      final ResourceHandlerRequest<ResourceModel> request,
+      final CallbackContext callbackContext,
+      final ProxyClient<QBusinessClient> proxyClient) {
+    return new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger);
   }
 
   private boolean isStabilized(
-      ProxyClient<QBusinessClient> proxyClient,
-      ResourceModel model,
-      Logger logger
-  ) {
-    GetApplicationResponse getAppResponse = getApplication(model, proxyClient, logger);
+      final ProxyClient<QBusinessClient> proxyClient,
+      final ResourceModel model,
+      final Logger logger) {
+    final GetWebExperienceResponse getWebExperienceResponse = getWebExperience(model, proxyClient, logger);
 
-    var status = getAppResponse.statusAsString();
+    final String status = getWebExperienceResponse.statusAsString();
 
-    if (ApplicationStatus.ACTIVE.toString().equals(status)) {
-      logger.log("[INFO] %s with ID: %s has stabilized".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+    if (WebExperienceStatus.ACTIVE.toString().equals(status)) {
+      logger.log("[INFO] %s with ApplicationId: %s and WebExperienceId: %s has stabilized"
+          .formatted(ResourceModel.TYPE_NAME, model.getApplicationId(), model.getWebExperienceId()));
       return true;
     }
 
-    if (!ApplicationStatus.FAILED.toString().equals(status)) {
-      logger.log("[INFO] %s with ID: %s is still stabilizing.".formatted(ResourceModel.TYPE_NAME, model.getApplicationId()));
+    if (!WebExperienceStatus.FAILED.toString().equals(status)) {
+      logger.log("[INFO] %s with ApplicationId: %s and WebExperienceId: %s is still stabilizing."
+          .formatted(ResourceModel.TYPE_NAME, model.getApplicationId(), model.getWebExperienceId()));
       return false;
     }
 
     // handle failed state
 
     RuntimeException causeMessage = null;
-    if (StringUtils.isNotBlank(getAppResponse.errorMessage())) {
-      causeMessage = new RuntimeException(getAppResponse.errorMessage());
+    if (StringUtils.isNotBlank(getWebExperienceResponse.error())) {
+      causeMessage = new RuntimeException(getWebExperienceResponse.error());
     }
 
-    throw new CfnNotStabilizedException(ResourceModel.TYPE_NAME, model.getApplicationId(), causeMessage);
+    throw new CfnNotStabilizedException(ResourceModel.TYPE_NAME, model.getPrimaryIdentifier().toString(), causeMessage);
   }
 
-  private CreateApplicationResponse callCreateApplication(CreateApplicationRequest request,
-      ProxyClient<QBusinessClient> proxyClient,
-      ResourceModel model) {
-    var client = proxyClient.client();
-    CreateApplicationResponse response = proxyClient.injectCredentialsAndInvokeV2(request, client::createApplication);
-    model.setApplicationId(response.applicationId());
+  private CreateWebExperienceResponse callCreateWebExperience(
+      final CreateWebExperienceRequest request,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final ResourceModel model) {
+    CreateWebExperienceResponse response = proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::createWebExperience);
+    model.setWebExperienceId(response.webExperienceId());
     return response;
+  }
+
+  private UpdateWebExperienceResponse callUpdateWebExperience(
+      UpdateWebExperienceRequest updateReq,
+      final ProxyClient<QBusinessClient> proxyClient
+  ) {
+    return proxyClient.injectCredentialsAndInvokeV2(updateReq, proxyClient.client()::updateWebExperience);
   }
 }

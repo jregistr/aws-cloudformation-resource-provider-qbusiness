@@ -24,8 +24,8 @@ public class AbstractTestBase {
   }
   static ProxyClient<QBusinessClient> MOCK_PROXY(
     final AmazonWebServicesClientProxy proxy,
-    final QBusinessClient sdkClient) {
-    return new ProxyClient<>() {
+    final QBusinessClient qBusinessClient) {
+    return new ProxyClient<QBusinessClient>() {
       @Override
       public <RequestT extends AwsRequest, ResponseT extends AwsResponse> ResponseT
       injectCredentialsAndInvokeV2(RequestT request, Function<RequestT, ResponseT> requestFunction) {
@@ -60,7 +60,7 @@ public class AbstractTestBase {
 
       @Override
       public QBusinessClient client() {
-        return sdkClient;
+        return qBusinessClient;
       }
     };
   }

@@ -160,11 +160,11 @@
   "handlers": {
     "create": {
       "permissions": [
+        "iam:PassRole",
         "qbusiness:CreateWebExperience",
         "qbusiness:GetWebExperience",
         "qbusiness:ListTagsForResource",
-        "qbusiness:TagResource",
-        "iam:PassRole"
+        "qbusiness:TagResource"
       ]
     },
     "read": {
@@ -175,12 +175,12 @@
     },
     "update": {
       "permissions": [
+        "iam:PassRole",
         "qbusiness:GetWebExperience",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
-        "qbusiness:UpdateWebExperience",
-        "iam:PassRole"
+        "qbusiness:UpdateWebExperience"
       ]
     },
     "delete": {

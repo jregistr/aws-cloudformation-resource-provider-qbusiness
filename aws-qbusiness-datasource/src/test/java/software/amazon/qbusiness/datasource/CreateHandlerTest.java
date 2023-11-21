@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.datasource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -21,19 +22,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
+import software.amazon.awssdk.core.document.Document;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
+import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
-import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.CreateApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreateDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateDataSourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceStatus;
+import software.amazon.awssdk.services.qbusiness.model.DocumentEnrichmentConditionOperator;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
@@ -52,24 +56,23 @@ import software.amazon.cloudformation.proxy.delay.Constant;
 
 public class CreateHandlerTest extends AbstractTestBase {
 
-  private static final String APP_ID = "a197dafc-2158-4f93-ab0d-b1c361c39838";
+  private static final String APP_ID = "3f7bf9f2-205f-47af-8e35-804fc749fbf8";
+  private static final String INDEX_ID = "31b1150f-4988-4d79-8952-8cac97d54322";
+  private static final String DATA_SOURCE_ID = "b1d8bb25-bd6f-4bfd-8286-475b029b52a8";
 
-  @Mock
   private AmazonWebServicesClientProxy proxy;
 
-  @Mock
   private ProxyClient<QBusinessClient> proxyClient;
 
   @Mock
-  QBusinessClient sdkClient;
-
-  private Constant testBackOff;
-  private CreateHandler underTest;
+  private QBusinessClient sdkClient;
 
   private AutoCloseable testMocks;
 
+  private CreateHandler underTest;
+
   private ResourceHandlerRequest<ResourceModel> testRequest;
-  private ResourceModel createModel;
+  private ResourceModel model;
 
   @BeforeEach
   public void setup() {
@@ -78,139 +81,179 @@ public class CreateHandlerTest extends AbstractTestBase {
     sdkClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, sdkClient);
 
-    testBackOff = Constant.of()
-        .delay(Duration.ofSeconds(5))
-        .timeout(Duration.ofSeconds(45))
-        .build();
+    underTest = new CreateHandler(Constant.of()
+        .timeout(Duration.ofSeconds(60))
+        .delay(Duration.ofSeconds(3))
+        .build());
 
-    underTest = new CreateHandler(testBackOff);
-
-    createModel = ResourceModel.builder()
-        .displayName("TheMeta")
-        .description("A Description")
-        .roleArn("such role, very arn")
+    model = ResourceModel.builder()
+        .applicationId(APP_ID)
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
+        .displayName("Name Name")
+        .description("We are groot")
+        .roleArn("roleyroley")
+        .schedule("0 11 * * 4")
+        .vpcConfiguration(DataSourceVpcConfiguration.builder()
+            .securityGroupIds(List.of("secur1", "secure2"))
+            .subnetIds(List.of("sub1", "sub2"))
+            .build())
+        .configuration(DataSourceConfiguration.builder()
+            .templateConfiguration(TemplateConfiguration.builder()
+                .template(Map.of(
+                    "Type", "WebcrawlerV2",
+                    "Links", List.of("link1", "link2"),
+                    "depth", 50,
+                    "overrides", Map.of(
+                        "a", 10
+                    )
+                ))
+                .build())
+            .build()
+        )
+        .customDocumentEnrichmentConfiguration(DocumentEnrichmentConfiguration.builder()
+            .preExtractionHookConfiguration(HookConfiguration.builder()
+                .roleArn("extractrole")
+                .lambdaArn("lambda")
+                .s3BucketName("bucket")
+                .invocationCondition(DocumentAttributeCondition.builder()
+                    .operator(DocumentEnrichmentConditionOperator.EQUALS.toString())
+                    .value(DocumentAttributeValue.builder().stringValue("wow").build())
+                    .key("datkey")
+                    .build()
+                )
+                .build())
+            .build())
         .build();
 
     testRequest = ResourceHandlerRequest.<ResourceModel>builder()
-        .desiredResourceState(createModel)
-        .awsAccountId("123456")
         .awsPartition("aws")
-        .region("us-east-1")
-        .stackId("Stack1")
+        .region("us-west-2")
+        .awsAccountId("111122223333")
+        .desiredResourceState(model)
         .build();
 
-    when(sdkClient.createApplication(any(CreateApplicationRequest.class)))
-        .thenReturn(CreateApplicationResponse.builder()
-            .applicationId(APP_ID)
+    when(sdkClient.createDataSource(any(CreateDataSourceRequest.class)))
+        .thenReturn(CreateDataSourceResponse.builder()
+            .id(DATA_SOURCE_ID)
             .build()
         );
+    when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
+        .tags(List.of())
+        .build());
   }
 
   @AfterEach
   public void tear_down() throws Exception {
     verify(sdkClient, atLeastOnce()).serviceName();
     verifyNoMoreInteractions(sdkClient);
+
     testMocks.close();
   }
 
   @Test
   public void handleRequest_SimpleSuccess() {
-    // set up scenario
-    when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
-        .tags(List.of())
-        .build());
-    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(GetApplicationResponse.builder()
-            .applicationId(APP_ID)
-            .status(ApplicationStatus.ACTIVE)
-            .description(createModel.getDescription())
-            .displayName(createModel.getDisplayName())
-            .roleArn(createModel.getRoleArn())
-            .build());
-
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
-    );
-
-    // verify
-    assertThat(resultProgress).isNotNull();
-    assertThat(resultProgress.isSuccess()).isTrue();
-    var model = resultProgress.getResourceModel();
-    assertThat(model.getDisplayName()).isEqualTo(createModel.getDisplayName());
-    assertThat(model.getRoleArn()).isEqualTo(createModel.getRoleArn());
-    assertThat(model.getDescription()).isEqualTo(createModel.getDescription());
-    assertThat(model.getStatus()).isEqualTo(ApplicationStatus.ACTIVE.toString());
-
-    verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    verify(sdkClient, times(2)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
-    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
-  }
-
-  @Test
-  public void handleRequestFromProcessingStateToActive() {
-    // set up scenario
-    var getResponse = GetApplicationResponse.builder()
-        .applicationId(APP_ID)
-        .description(createModel.getDescription())
-        .displayName(createModel.getDisplayName())
-        .roleArn(createModel.getRoleArn())
-        .build();
-
-    when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
-        .tags(List.of())
-        .build());
-
-    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(
-            getResponse.toBuilder().status(ApplicationStatus.CREATING).build(),
-            getResponse.toBuilder().status(ApplicationStatus.ACTIVE).build()
-        );
-
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
-    );
-
-    // verify
-    assertThat(resultProgress).isNotNull();
-    assertThat(resultProgress.isSuccess()).isTrue();
-    verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    verify(sdkClient, times(3)).getApplication(
-        argThat((ArgumentMatcher<GetApplicationRequest>) t -> t.applicationId().equals(APP_ID))
-    );
-    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
-  }
-
-  @Test
-  public void testItFailsWithErrorMessageWhenGetReturnsFailStatus() {
     // set up
-    when(sdkClient.getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(GetApplicationResponse.builder()
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenReturn(GetDataSourceResponse.builder()
+        .applicationId(APP_ID)
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
+        .status(DataSourceStatus.ACTIVE)
+        .build());
+
+    // call method
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
+
+    // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+
+    var createReqCaptor = ArgumentCaptor.forClass(CreateDataSourceRequest.class);
+    verify(sdkClient).createDataSource(createReqCaptor.capture());
+    verify(sdkClient, times(2)).getDataSource(argThat(
+        (ArgumentMatcher<GetDataSourceRequest>) t -> t.dataSourceId().equals(DATA_SOURCE_ID)
+    ));
+    verify(sdkClient).listTagsForResource(argThat(
+        (ArgumentMatcher<ListTagsForResourceRequest>) t -> t.resourceARN().contains(DATA_SOURCE_ID)
+    ));
+
+    CreateDataSourceRequest argCreateReq = createReqCaptor.getValue();
+    Document template = argCreateReq.configuration().templateConfiguration().template();
+
+    assertThat(template).isEqualTo(Document.fromMap(Map.of(
+        "Type", Document.fromString("WebcrawlerV2"),
+        "Links", Document.fromList(List.of(Document.fromString("link1"), Document.fromString("link2"))),
+        "depth", Document.fromNumber(50),
+        "overrides", Document.fromMap(Map.of(
+            "a", Document.fromNumber(10)
+        ))
+    )));
+  }
+
+  @Test
+  public void handleRequest_StabilizeFomCreatingToActive() {
+    // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(
+            GetDataSourceResponse.builder()
+                .applicationId(APP_ID)
+                .indexId(INDEX_ID)
+                .dataSourceId(DATA_SOURCE_ID)
+                .status(DataSourceStatus.CREATING)
+                .build()
+        )
+        .thenReturn(GetDataSourceResponse.builder()
             .applicationId(APP_ID)
-            .status(ApplicationStatus.FAILED)
-            .errorMessage("There was like, a problem.")
+            .indexId(INDEX_ID)
+            .dataSourceId(DATA_SOURCE_ID)
+            .status(DataSourceStatus.ACTIVE)
             .build()
         );
 
-    // call method under test & verify
+    // call method
+    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
+        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    );
 
     // verify
+    assertThat(resultProgress).isNotNull();
+    assertThat(resultProgress.isSuccess()).isTrue();
+
+    verify(sdkClient).createDataSource(any(CreateDataSourceRequest.class));
+    verify(sdkClient, times(3)).getDataSource(any(GetDataSourceRequest.class));
+    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+  }
+
+  @Test
+  public void testItThrowsExpectedErrorWhenStabilizationFails() {
+    // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class)))
+        .thenReturn(
+            GetDataSourceResponse.builder()
+                .applicationId(APP_ID)
+                .indexId(INDEX_ID)
+                .dataSourceId(DATA_SOURCE_ID)
+                .status(DataSourceStatus.FAILED)
+                .errorMessage("Such error, very fail")
+                .build()
+        );
+
+    // call and verify
     assertThatThrownBy(() -> underTest.handleRequest(
         proxy, testRequest, new CallbackContext(), proxyClient, logger
     )).isInstanceOf(CfnNotStabilizedException.class);
 
-    verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    verify(sdkClient, times(1)).getApplication(any(GetApplicationRequest.class));
+    verify(sdkClient).createDataSource(any(CreateDataSourceRequest.class));
+    verify(sdkClient, times(1)).getDataSource(any(GetDataSourceRequest.class));
   }
 
-  private static Stream<Arguments> createApplicationErrorsAndExpectedCodes() {
+  private static Stream<Arguments> serviceErrorsAndHandlerCodes() {
     return Stream.of(
         Arguments.of(ValidationException.builder().build(), HandlerErrorCode.InvalidRequest),
-        Arguments.of(ConflictException.builder().build(), HandlerErrorCode.ResourceConflict),
         Arguments.of(ResourceNotFoundException.builder().build(), HandlerErrorCode.NotFound),
+        Arguments.of(ConflictException.builder().build(), HandlerErrorCode.ResourceConflict),
         Arguments.of(ServiceQuotaExceededException.builder().build(), HandlerErrorCode.ServiceLimitExceeded),
         Arguments.of(ThrottlingException.builder().build(), HandlerErrorCode.Throttling),
         Arguments.of(AccessDeniedException.builder().build(), HandlerErrorCode.AccessDenied),
@@ -219,23 +262,18 @@ public class CreateHandlerTest extends AbstractTestBase {
   }
 
   @ParameterizedTest
-  @MethodSource("createApplicationErrorsAndExpectedCodes")
-  public void testItReturnsExpectedCfnErrorWhenCreateApplicationFails(
-      QBusinessException serviceError,
-      HandlerErrorCode expectedHandlerErrorCode
-  ) {
-    // set up
-    when(sdkClient.createApplication(any(CreateApplicationRequest.class)))
-        .thenThrow(serviceError);
+  @MethodSource("serviceErrorsAndHandlerCodes")
+  public void testThatItReturnsExpectedCfnHandlerCodeWhenCreateCallFails(QBusinessException serviceError, HandlerErrorCode expectedErrorCode) {
+    when(sdkClient.createDataSource(any(CreateDataSourceRequest.class))).thenThrow(serviceError);
 
-    // call method under test
+    // under test call
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
         proxy, testRequest, new CallbackContext(), proxyClient, logger
     );
 
     // verify
     assertThat(resultProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).createApplication(any(CreateApplicationRequest.class));
-    assertThat(resultProgress.getErrorCode()).isEqualTo(expectedHandlerErrorCode);
+    assertThat(resultProgress.getErrorCode()).isEqualTo(expectedErrorCode);
+    verify(sdkClient).createDataSource(any(CreateDataSourceRequest.class));
   }
 }

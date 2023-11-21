@@ -250,11 +250,11 @@
   "handlers": {
     "create": {
       "permissions": [
+        "iam:PassRole",
         "qbusiness:CreateRetriever",
         "qbusiness:GetRetriever",
         "qbusiness:ListTagsForResource",
-        "qbusiness:TagResource",
-        "iam:PassRole"
+        "qbusiness:TagResource"
       ]
     },
     "read": {
@@ -265,12 +265,12 @@
     },
     "update": {
       "permissions": [
+        "iam:PassRole",
         "qbusiness:GetRetriever",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
-        "qbusiness:UpdateRetriever",
-        "iam:PassRole"
+        "qbusiness:UpdateRetriever"
       ]
     },
     "delete": {

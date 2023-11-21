@@ -1,27 +1,22 @@
-package software.amazon.qbusiness.webexperience;
+package software.amazon.qbusiness.plugin;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
-import software.amazon.awssdk.awscore.AwsRequest;
-import software.amazon.awssdk.services.qbusiness.model.CreateWebExperienceRequest;
-import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
+import software.amazon.awssdk.services.qbusiness.model.CreatePluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeletePluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetPluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetPluginResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListPluginsRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListPluginsResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
-import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListWebExperiencesResponse;
-import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
-import software.amazon.awssdk.services.qbusiness.model.UpdateWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdatePluginRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 /**
@@ -39,22 +34,23 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static CreateWebExperienceRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
-    return CreateWebExperienceRequest.builder()
-        .clientToken(idempotentToken)
+  static CreatePluginRequest translateToCreateRequest(final ResourceModel model, final String idempotenceToken) {
+    return CreatePluginRequest.builder()
         .applicationId(model.getApplicationId())
-        .title(model.getTitle())
-        .subtitle(model.getSubtitle())
-        .welcomeMessage(model.getWelcomeMessage())
+        .displayName(model.getDisplayName())
+        .type(model.getType())
+        .serverUrl(model.getServerUrl())
+        .authConfiguration(AuthConfigHelper.convertToServiceAuthConfig(model.getAuthConfiguration()))
+        .clientToken(idempotenceToken)
         .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
         .build();
   }
 
-  static UpdateWebExperienceRequest translateToPostCreateUpdateRequest(final ResourceModel model) {
-    return UpdateWebExperienceRequest.builder()
+  static UpdatePluginRequest translateToPostCreateUpdateRequest(final ResourceModel model) {
+    return UpdatePluginRequest.builder()
         .applicationId(model.getApplicationId())
-        .webExperienceId(model.getWebExperienceId())
-        .authenticationConfiguration(toServiceAuthenticationConfiguration(model.getAuthenticationConfiguration()))
+        .pluginId(model.getPluginId())
+        .state(model.getState())
         .build();
   }
 
@@ -64,25 +60,10 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to describe a resource
    */
-  static GetWebExperienceRequest translateToReadRequest(final ResourceModel model) {
-    return GetWebExperienceRequest.builder()
+  static GetPluginRequest translateToReadRequest(final ResourceModel model) {
+    return GetPluginRequest.builder()
         .applicationId(model.getApplicationId())
-        .webExperienceId(model.getWebExperienceId())
-        .build();
-  }
-
-  /**
-   * Request to list tags for a resource
-   *
-   * @param request resource handler request for the resource model
-   * @param model   resource model
-   * @return awsRequest the aws service request to list tags for a resource
-   */
-  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
-    var webExperienceArn = Utils.buildWebExperienceArn(request, model);
-
-    return ListTagsForResourceRequest.builder()
-        .resourceARN(webExperienceArn)
+        .pluginId(model.getPluginId())
         .build();
   }
 
@@ -92,35 +73,18 @@ public class Translator {
    * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final GetWebExperienceResponse awsResponse) {
+  static ResourceModel translateFromReadResponse(final GetPluginResponse awsResponse) {
     return ResourceModel.builder()
         .applicationId(awsResponse.applicationId())
-        .webExperienceId(awsResponse.webExperienceId())
-        .status(awsResponse.statusAsString())
-        .title(awsResponse.title())
-        .subtitle(awsResponse.subtitle())
-        .welcomeMessage(awsResponse.welcomeMessage())
-        .authenticationConfiguration(fromServiceAuthenticationConfiguration(awsResponse.authenticationConfiguration()))
-        .defaultEndpoint(awsResponse.defaultEndpoint())
+        .pluginId(awsResponse.pluginId())
+        .pluginArn(awsResponse.pluginArn())
+        .type(awsResponse.typeAsString())
+        .displayName(awsResponse.displayName())
+        .serverUrl(awsResponse.serverUrl())
+        .authConfiguration(AuthConfigHelper.convertFromServiceAuthConfig(awsResponse.authConfiguration()))
+        .state(awsResponse.stateAsString())
         .createdAt(instantToString(awsResponse.createdAt()))
         .updatedAt(instantToString(awsResponse.updatedAt()))
-        .build();
-  }
-
-  /**
-   * Request to add tags to resource model
-   *
-   * @param listTagsResponse response from list tags
-   * @param model            resource model
-   * @return model with tags added if they exist
-   */
-  static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
-    if (listTagsResponse == null || !listTagsResponse.hasTags()) {
-      return model;
-    }
-
-    return model.toBuilder()
-        .tags(TagHelper.modelTagsFromServiceTags(listTagsResponse.tags()))
         .build();
   }
 
@@ -130,10 +94,10 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to delete a resource
    */
-  static DeleteWebExperienceRequest translateToDeleteRequest(final ResourceModel model) {
-    return DeleteWebExperienceRequest.builder()
+  static DeletePluginRequest translateToDeleteRequest(final ResourceModel model) {
+    return DeletePluginRequest.builder()
+        .pluginId(model.getPluginId())
         .applicationId(model.getApplicationId())
-        .webExperienceId(model.getWebExperienceId())
         .build();
   }
 
@@ -143,98 +107,64 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
-  static UpdateWebExperienceRequest translateToUpdateRequest(final ResourceModel model) {
-    return UpdateWebExperienceRequest.builder()
-        .applicationId(model.getApplicationId())
-        .webExperienceId(model.getWebExperienceId())
-        .title(model.getTitle())
-        .subtitle(model.getSubtitle())
-        .authenticationConfiguration(toServiceAuthenticationConfiguration(model.getAuthenticationConfiguration()))
+  static UpdatePluginRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdatePluginRequest.builder()
+        .displayName(model.getDisplayName())
+        .serverUrl(model.getServerUrl())
+        .authConfiguration(AuthConfigHelper.convertToServiceAuthConfig(model.getAuthConfiguration()))
+        .state(model.getState())
         .build();
-  }
-
-  /**
-   * Request to update properties of a previously created resource
-   *
-   * @param model resource model
-   * @return awsRequest the aws service request to modify a resource
-   */
-  static AwsRequest translateToFirstUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    // e.g. https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-logs/blob/2077c92299aeb9a68ae8f4418b5e932b12a8b186/aws-logs-loggroup/src/main/java/com/aws/logs/loggroup/Translator.java#L45-L50
-    return awsRequest;
-  }
-
-  /**
-   * Request to update some other properties that could not be provisioned through first update request
-   *
-   * @param model resource model
-   * @return awsRequest the aws service request to modify a resource
-   */
-  static AwsRequest translateToSecondUpdateRequest(final ResourceModel model) {
-    final AwsRequest awsRequest = null;
-    // TODO: construct a request
-    return awsRequest;
   }
 
   /**
    * Request to list resources
    *
    * @param nextToken token passed to the aws service list resources request
-   * @param model     resource model
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static ListWebExperiencesRequest translateToListRequest(final String nextToken, final ResourceModel model) {
-    return ListWebExperiencesRequest.builder()
+  static ListPluginsRequest translateToListRequest(final String applicationId, final String nextToken) {
+    return ListPluginsRequest.builder()
+        .applicationId(applicationId)
         .nextToken(nextToken)
-        .applicationId(model.getApplicationId())
         .build();
   }
 
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
    *
-   * @param serviceResponse the aws service get resource response
-   * @param applicationId   of the list of indices
+   * @param listPluginsResponse the aws service list resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListResponse(final ListWebExperiencesResponse serviceResponse, final String applicationId) {
-    return serviceResponse.webExperiences()
+  static List<ResourceModel> translateFromListResponse(final ListPluginsResponse listPluginsResponse) {
+    return listPluginsResponse.plugins()
         .stream()
-        .map(summary -> ResourceModel.builder()
-            .applicationId(applicationId)
-            .webExperienceId(summary.webExperienceId())
-            .status(summary.statusAsString())
-            .createdAt(instantToString(summary.createdAt()))
-            .updatedAt(instantToString(summary.updatedAt()))
-            .defaultEndpoint(summary.defaultEndpoint())
+        .map(pluginSummary -> ResourceModel.builder()
+            .pluginId(pluginSummary.pluginId())
+            .displayName(pluginSummary.displayName())
+            .type(pluginSummary.type().toString())
+            .serverUrl(pluginSummary.serverUrl())
+            .state(pluginSummary.stateAsString())
+            .createdAt(instantToString(pluginSummary.createdAt()))
+            .updatedAt(instantToString(pluginSummary.updatedAt()))
             .build())
         .toList();
-  }
 
-  private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
-    return Optional.ofNullable(collection)
-        .map(Collection::stream)
-        .orElseGet(Stream::empty);
   }
 
   /**
    * Request to add tags to a resource
    *
-   * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
   static TagResourceRequest tagResourceRequest(
       final ResourceHandlerRequest<ResourceModel> request,
-      final ResourceModel model,
       final Map<String, String> addedTags) {
-    var webExperienceArn = Utils.buildWebExperienceArn(request, model);
+    var pluginArn = request.getDesiredResourceState().getPluginArn();
 
-    List<Tag> toTags = Optional.ofNullable(addedTags)
+    List<software.amazon.awssdk.services.qbusiness.model.Tag> toTags = Optional.ofNullable(addedTags)
         .map(Map::entrySet)
         .map(pairs -> pairs.stream()
-            .map(pair -> Tag.builder()
+            .map(pair -> software.amazon.awssdk.services.qbusiness.model.Tag.builder()
                 .key(pair.getKey())
                 .value(pair.getValue())
                 .build()
@@ -245,7 +175,7 @@ public class Translator {
         .orElse(null);
 
     return TagResourceRequest.builder()
-        .resourceARN(webExperienceArn)
+        .resourceARN(pluginArn)
         .tags(toTags)
         .build();
   }
@@ -253,75 +183,43 @@ public class Translator {
   /**
    * Request to remove tags from a resource
    *
-   * @param request request details
-   * @param model resource model
-   * @return UntagResourceRequest the aws service request to create a resource
+   * @return awsRequest the aws service request to create a resource
    */
   static UntagResourceRequest untagResourceRequest(
       final ResourceHandlerRequest<ResourceModel> request,
-      final ResourceModel model,
       final Set<String> removedTags) {
-    var webExperienceArn = Utils.buildWebExperienceArn(request, model);
+    var pluginArn = request.getDesiredResourceState().getPluginArn();
     var tagsToRemove = Optional.ofNullable(removedTags)
         .filter(set -> !set.isEmpty())
         .orElse(null);
 
     return UntagResourceRequest.builder()
-        .resourceARN(webExperienceArn)
+        .resourceARN(pluginArn)
         .tagKeys(tagsToRemove)
         .build();
   }
 
-
-  private static WebExperienceAuthConfiguration fromServiceAuthenticationConfiguration(
-      final software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration webExperienceAuthConfiguration) {
-    if (Objects.isNull(webExperienceAuthConfiguration)) {
-      return null;
+  static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
+    if (listTagsResponse == null || !listTagsResponse.hasTags()) {
+      return model;
     }
 
-    return WebExperienceAuthConfiguration.builder()
-        .samlConfiguration(fromServiceWebExperienceAuthConfiguration(webExperienceAuthConfiguration.samlConfiguration()))
+    return model.toBuilder()
+        .tags(TagHelper.cfnTagsFromServiceTags(listTagsResponse.tags()))
         .build();
   }
 
-  private static SamlConfiguration fromServiceWebExperienceAuthConfiguration(
-      final software.amazon.awssdk.services.qbusiness.model.SamlConfiguration samlConfigurationOptions) {
-    return SamlConfiguration.builder()
-        .metadataXML(samlConfigurationOptions.metadataXML())
-        .roleArn(samlConfigurationOptions.roleArn())
-        .userIdAttribute(samlConfigurationOptions.userIdAttribute())
-        .userGroupAttribute(samlConfigurationOptions.userGroupAttribute())
+  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+    var pluginArn = model.getPluginArn();
+    return ListTagsForResourceRequest.builder()
+        .resourceARN(pluginArn)
         .build();
   }
 
-  private static software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration
-  toServiceAuthenticationConfiguration(final WebExperienceAuthConfiguration authenticationConfiguration) {
-    if (authenticationConfiguration == null || authenticationConfiguration.getSamlConfiguration() == null) {
-      return null;
-    }
-
-    return software.amazon.awssdk.services.qbusiness.model.WebExperienceAuthConfiguration.builder()
-        .samlConfiguration(toServiceSamlConfigurationOptions(authenticationConfiguration.getSamlConfiguration()))
-        .build();
-  }
-
-  private static software.amazon.awssdk.services.qbusiness.model.SamlConfiguration
-  toServiceSamlConfigurationOptions(final SamlConfiguration samlConfigurationOptions) {
-    if (samlConfigurationOptions == null) {
-      return null;
-    }
-
-    return software.amazon.awssdk.services.qbusiness.model.SamlConfiguration.builder()
-        .metadataXML(samlConfigurationOptions.getMetadataXML())
-        .roleArn(samlConfigurationOptions.getRoleArn())
-        .userIdAttribute(samlConfigurationOptions.getUserIdAttribute())
-        .userGroupAttribute(samlConfigurationOptions.getUserGroupAttribute())
-        .build();
-  }
-
-  private static String instantToString(Instant instant) {
+  static String instantToString(Instant instant) {
     return Optional.ofNullable(instant)
         .map(Instant::toString)
         .orElse(null);
   }
+
 }

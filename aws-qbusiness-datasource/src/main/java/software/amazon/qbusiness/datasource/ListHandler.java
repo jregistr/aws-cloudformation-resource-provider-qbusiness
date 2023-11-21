@@ -3,8 +3,8 @@ package software.amazon.qbusiness.datasource;
 import java.util.List;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.ListApplicationsRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListApplicationsResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.OperationStatus;
@@ -22,13 +22,21 @@ public class ListHandler extends BaseHandlerStd {
       final ProxyClient<QBusinessClient> proxyClient,
       final Logger logger) {
 
-    final ListApplicationsRequest awsRequest = Translator.translateToListRequest(request.getNextToken());
+    var resourceModel = request.getDesiredResourceState();
+    final ListDataSourcesRequest serviceRequest = Translator.translateToListRequest(
+        resourceModel,
+        request.getNextToken()
+    );
+    ListDataSourcesResponse listDataSourcesResponse = proxy.injectCredentialsAndInvokeV2(serviceRequest, proxyClient.client()::listDataSources);
 
-    ListApplicationsResponse listApplicationsResponse = proxy.injectCredentialsAndInvokeV2(awsRequest, proxyClient.client()::listApplications);
+    final String nextToken = listDataSourcesResponse.nextToken();
 
-    String nextToken = listApplicationsResponse.nextToken();
+    List<ResourceModel> models = Translator.translateFromListResponse(
+        resourceModel.getApplicationId(),
+        resourceModel.getIndexId(),
+        listDataSourcesResponse
+    );
 
-    List<ResourceModel> models = Translator.translateFromListResponse(listApplicationsResponse);
     return ProgressEvent.<ResourceModel, CallbackContext>builder()
         .resourceModels(models)
         .nextToken(nextToken)

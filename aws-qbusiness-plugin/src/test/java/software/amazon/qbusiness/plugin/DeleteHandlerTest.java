@@ -1,5 +1,16 @@
 package software.amazon.qbusiness.plugin;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.time.Duration;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,190 +20,131 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
-import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceRequest;
-import software.amazon.awssdk.services.qbusiness.model.DeleteWebExperienceResponse;
+import software.amazon.awssdk.services.qbusiness.model.DeletePluginRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeletePluginResponse;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
-import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
-import software.amazon.awssdk.services.qbusiness.model.WebExperienceStatus;
+import software.amazon.awssdk.services.qbusiness.model.ValidationException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.HandlerErrorCode;
 import software.amazon.cloudformation.proxy.OperationStatus;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-import software.amazon.cloudformation.proxy.delay.Constant;
-
-import java.time.Duration;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 public class DeleteHandlerTest extends AbstractTestBase {
 
-  private static final String APP_ID = "a197dafc-2158-4f93-ab0d-b1c361c39838";
-  private static final String WEB_EXPERIENCE_ID = "44444444-2158-4f93-ab0d-b1c361c39838";
+    private static final String APPLICATION_ID = "ApplicationId";
+    private static final String PLUGIN_ID = "PluginId";
+    private static final String CLIENT_TOKEN = "ClientToken";
+    private static final String AWS_PARTITION = "aws";
+    private static final String ACCOUNT_ID = "123456789012";
+    private static final String REGION = "us-west-2";
 
-  @Mock
-  private AmazonWebServicesClientProxy proxy;
+    private AmazonWebServicesClientProxy proxy;
 
-  @Mock
-  private ProxyClient<QBusinessClient> proxyClient;
+    private ProxyClient<QBusinessClient> proxyClient;
 
-  @Mock
-  private QBusinessClient sdkClient;
+    @Mock
+    private QBusinessClient qBusinessClient;
 
-  private DeleteHandler underTest;
+    private AutoCloseable testMocks;
+    private DeleteHandler underTest;
+    private ResourceModel resourceModel;
+    private ResourceHandlerRequest<ResourceModel> request;
 
-  private AutoCloseable testMocks;
 
-  private ResourceHandlerRequest<ResourceModel> testRequest;
-  private ResourceModel toDeleteModel;
+    @BeforeEach
+    public void setup() {
+        testMocks = MockitoAnnotations.openMocks(this);
+        proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
+        proxyClient = MOCK_PROXY(proxy, qBusinessClient);
+        this.underTest = new DeleteHandler();
 
-  @BeforeEach
-  public void setup() {
-    testMocks = MockitoAnnotations.openMocks(this);
-    proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-    sdkClient = mock(QBusinessClient.class);
-    proxyClient = MOCK_PROXY(proxy, sdkClient);
+        resourceModel = ResourceModel.builder()
+                    .applicationId(APPLICATION_ID)
+                    .pluginId(PLUGIN_ID)
+                .build();
 
-    var testBackOff = Constant.of()
-        .delay(Duration.ofSeconds(2))
-        .timeout(Duration.ofSeconds(45))
-        .build();
-    underTest = new DeleteHandler(testBackOff);
+        request = ResourceHandlerRequest.<ResourceModel>builder()
+                    .awsPartition(AWS_PARTITION)
+                    .region(REGION)
+                    .awsAccountId(ACCOUNT_ID)
+                    .desiredResourceState(resourceModel)
+                    .clientRequestToken(CLIENT_TOKEN)
+                .build();
+    }
 
-    toDeleteModel = ResourceModel.builder()
-        .applicationId(APP_ID)
-        .webExperienceId(WEB_EXPERIENCE_ID)
-        .build();
+    @AfterEach
+    public void tear_down() throws Exception {
+        verify(qBusinessClient, atLeastOnce()).serviceName();
+        verifyNoMoreInteractions(qBusinessClient);
+        testMocks.close();
+    }
 
-    testRequest = ResourceHandlerRequest.<ResourceModel>builder()
-        .desiredResourceState(toDeleteModel)
-        .awsAccountId("123456")
-        .awsPartition("aws")
-        .region("us-east-1")
-        .stackId("Stack1")
-        .build();
-  }
+    @Test
+    public void handleRequest_SimpleSuccess() {
 
-  @AfterEach
-  public void tear_down() throws Exception {
-    verify(sdkClient, atLeastOnce()).serviceName();
-    verifyNoMoreInteractions(sdkClient);
+        when(proxyClient.client().deletePlugin(any(DeletePluginRequest.class)))
+                .thenReturn(DeletePluginResponse.builder().build());
 
-    testMocks.close();
-  }
+        final ProgressEvent<ResourceModel, CallbackContext> response = underTest.handleRequest(proxy, request, new CallbackContext(), proxyClient, logger);
 
-  @Test
-  public void handleRequest_SimpleSuccess() {
-    // set up test
-    when(sdkClient.deleteWebExperience(any(DeleteWebExperienceRequest.class))).thenReturn(DeleteWebExperienceResponse.builder().build());
-    when(sdkClient.getWebExperience(any(GetWebExperienceRequest.class))).thenThrow(ResourceNotFoundException.builder().build());
+        verify(qBusinessClient).deletePlugin(any(DeletePluginRequest.class));
 
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
-    );
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(OperationStatus.SUCCESS);
+        assertThat(response.getCallbackDelaySeconds()).isEqualTo(0);
+        assertThat(response.getResourceModel()).isNull();
+        assertThat(response.getResourceModels()).isNull();
+        assertThat(response.getMessage()).isNull();
+        assertThat(response.getErrorCode()).isNull();
 
-    // verify
-    assertThat(resultProgress).isNotNull();
-    assertThat(resultProgress.isSuccess()).isTrue();
-    assertThat(resultProgress.getResourceModel()).isNull();
-    assertThat(resultProgress.getResourceModels()).isNull();
-    assertThat(resultProgress.getErrorCode()).isNull();
+        verify(qBusinessClient).deletePlugin(
+        argThat((ArgumentMatcher<DeletePluginRequest>) t -> t.applicationId().equals(APPLICATION_ID)));
 
-    verify(sdkClient).deleteWebExperience(
-        argThat((ArgumentMatcher<DeleteWebExperienceRequest>) t -> t.applicationId().equals(APP_ID) && t.webExperienceId().equals(WEB_EXPERIENCE_ID))
-    );
-    verify(sdkClient).getWebExperience(
-        argThat((ArgumentMatcher<GetWebExperienceRequest>) t -> t.applicationId().equals(APP_ID) && t.webExperienceId().equals(WEB_EXPERIENCE_ID))
-    );
-  }
+        verify(qBusinessClient).deletePlugin(
+        argThat((ArgumentMatcher<DeletePluginRequest>) t -> t.pluginId().equals(PLUGIN_ID)));
 
-  @Test
-  public void handleMovingFromDeletingToNotFound() {
-    // set up test
-    when(sdkClient.deleteWebExperience(any(DeleteWebExperienceRequest.class))).thenReturn(DeleteWebExperienceResponse.builder().build());
-    when(sdkClient.getWebExperience(any(GetWebExperienceRequest.class)))
-        .thenReturn(
-            GetWebExperienceResponse.builder()
-                .applicationId(APP_ID)
-                .webExperienceId(WEB_EXPERIENCE_ID)
-                .status(WebExperienceStatus.ACTIVE)
-                .build()
-        )
-        .thenReturn(
-            GetWebExperienceResponse.builder()
-                .applicationId(APP_ID)
-                .webExperienceId(WEB_EXPERIENCE_ID)
-                .status(WebExperienceStatus.DELETING)
-                .build()
-        )
-        .thenThrow(ResourceNotFoundException.builder().build());
+    }
 
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
-    );
-
-    // verify
-    assertThat(resultProgress).isNotNull();
-    assertThat(resultProgress.isSuccess()).isTrue();
-    assertThat(resultProgress.getResourceModel()).isNull();
-    assertThat(resultProgress.getResourceModels()).isNull();
-    assertThat(resultProgress.getErrorCode()).isNull();
-
-    verify(sdkClient).deleteWebExperience(
-        argThat((ArgumentMatcher<DeleteWebExperienceRequest>) t -> t.applicationId().equals(APP_ID) && t.webExperienceId().equals(WEB_EXPERIENCE_ID))
-    );
-
-    verify(sdkClient, times(3)).getWebExperience(
-        argThat((ArgumentMatcher<GetWebExperienceRequest>) t -> t.applicationId().equals(APP_ID) && t.webExperienceId().equals(WEB_EXPERIENCE_ID))
-    );
-  }
-
-  private static Stream<Arguments> serviceErrorAndHandlerCodes() {
+    private static Stream<Arguments> serviceErrorAndHandlerCodes() {
     return Stream.of(
-        Arguments.of(ConflictException.builder().build(), HandlerErrorCode.ResourceConflict),
-        Arguments.of(ResourceNotFoundException.builder().build(), HandlerErrorCode.NotFound),
-        Arguments.of(ThrottlingException.builder().build(), HandlerErrorCode.Throttling),
-        Arguments.of(AccessDeniedException.builder().build(), HandlerErrorCode.AccessDenied),
-        Arguments.of(InternalServerException.builder().build(), HandlerErrorCode.GeneralServiceException)
-    );
-  }
+            Arguments.of(ValidationException.builder().build(), HandlerErrorCode.InvalidRequest),
+            Arguments.of(ConflictException.builder().build(), HandlerErrorCode.ResourceConflict),
+            Arguments.of(ResourceNotFoundException.builder().build(), HandlerErrorCode.NotFound),
+            Arguments.of(ThrottlingException.builder().build(), HandlerErrorCode.Throttling),
+            Arguments.of(AccessDeniedException.builder().build(), HandlerErrorCode.AccessDenied),
+            Arguments.of(InternalServerException.builder().build(), HandlerErrorCode.GeneralServiceException)
+        );
+    }
 
-  @ParameterizedTest
-  @MethodSource("serviceErrorAndHandlerCodes")
-  public void testThatItReturnsExpectedHandlerErrorCodeForServiceError(QBusinessException serviceError, HandlerErrorCode expectedErrorCode) {
-    // set up test
-    when(sdkClient.deleteWebExperience(any(DeleteWebExperienceRequest.class))).thenThrow(serviceError);
+    @ParameterizedTest
+    @MethodSource("serviceErrorAndHandlerCodes")
+    public void testThatItReturnsExpectedHandlerErrorCodeForServiceError(QBusinessException serviceError, HandlerErrorCode expectedErrorCode) {
 
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
-    );
+      // set up test
+      when(qBusinessClient.deletePlugin(any(DeletePluginRequest.class))).thenThrow(serviceError);
 
-    // verify
-    assertThat(responseProgress).isNotNull();
-    assertThat(responseProgress.isSuccess()).isFalse();
-    assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).deleteWebExperience(any(DeleteWebExperienceRequest.class));
-    assertThat(responseProgress.getErrorCode()).isEqualTo(expectedErrorCode);
-    assertThat(responseProgress.getResourceModels()).isNull();
-  }
+      // call method under test
+      final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
+          proxy, request, new CallbackContext(), proxyClient, logger
+      );
+
+      // verify
+      assertThat(responseProgress).isNotNull();
+      assertThat(responseProgress.isSuccess()).isFalse();
+      assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
+      verify(qBusinessClient).deletePlugin(any(DeletePluginRequest.class));
+      assertThat(responseProgress.getErrorCode()).isEqualTo(expectedErrorCode);
+      assertThat(responseProgress.getResourceModels()).isNull();
+
+    }
+
 }

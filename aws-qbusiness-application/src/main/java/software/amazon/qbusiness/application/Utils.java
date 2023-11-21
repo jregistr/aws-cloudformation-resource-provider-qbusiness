@@ -1,36 +1,34 @@
-package software.amazon.qbusiness.retriever;
+package software.amazon.qbusiness.application;
+
+import static software.amazon.qbusiness.application.Constants.SERVICE_NAME_LOWER;
+
+import java.util.Locale;
 
 import lombok.NonNull;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
-import java.util.Locale;
-
-import static software.amazon.qbusiness.retriever.Constants.SERVICE_NAME_LOWER;
-
-
 public class Utils {
 
-  // arn:${Partition}:qbusiness:${Region}:${Account}:application/${ApplicationId}/retriever-source/${RetrieverId}
-  private static final String RETRIEVER_ARN_FORMAT = "arn:%s:" + SERVICE_NAME_LOWER + ":%s:%s:application/%s/retriever-source/%s";
+  // arn:${Partition}:qbusiness:${Region}:${Account}:application/${ApplicationId}
+  private static final String APPLICATION_ARN_FORMAT = "arn:%s:" + SERVICE_NAME_LOWER + ":%s:%s:application/%s";
 
   private Utils() {
   }
 
-  public static String buildRetrieverArn(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+  public static String buildApplicationArn(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
     var partition = request.getAwsPartition();
     var region = request.getRegion();
     var accountId = request.getAwsAccountId();
     var applicationId = model.getApplicationId();
-    var retrieverId = model.getRetrieverId();
-    return buildRetrieverArn(partition, region, accountId, applicationId, retrieverId);
+    return buildApplicationArn(partition, region, accountId, applicationId);
   }
 
-  private static String buildRetrieverArn(
+  private static String buildApplicationArn(
       @NonNull String partition,
       @NonNull String region,
       @NonNull String accountId,
-      @NonNull String applicationId,
-      @NonNull String retrieverId) {
-    return RETRIEVER_ARN_FORMAT.formatted(partition, region, accountId, applicationId, retrieverId).toLowerCase(Locale.ENGLISH);
+      @NonNull String applicationId) {
+    return APPLICATION_ARN_FORMAT.formatted(partition, region, accountId, applicationId).toLowerCase(Locale.ENGLISH);
   }
+
 }

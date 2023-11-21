@@ -1,9 +1,4 @@
-package software.amazon.qbusiness.retriever;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.MapUtils;
-import org.apache.commons.lang3.ObjectUtils;
-import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+package software.amazon.qbusiness.application;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -13,6 +8,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
+
+import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class TagHelper {
   /**
@@ -26,16 +28,18 @@ public class TagHelper {
    * @param tags Collection of tags to convert
    * @return Converted Map of tags
    */
-  public static Map<String, String> convertToMap(final Collection<software.amazon.qbusiness.retriever.Tag> tags) {
+  public static Map<String, String> convertToMap(final Collection<software.amazon.qbusiness.application.Tag> tags) {
     if (CollectionUtils.isEmpty(tags)) {
       return Collections.emptyMap();
     }
+
     return tags.stream()
         .filter(tag -> tag.getValue() != null)
         .collect(Collectors.toMap(
-            software.amazon.qbusiness.retriever.Tag::getKey,
-            software.amazon.qbusiness.retriever.Tag::getValue,
-            (oldValue, newValue) -> newValue));
+            software.amazon.qbusiness.application.Tag::getKey,
+            software.amazon.qbusiness.application.Tag::getValue,
+            (oldValue, newValue) -> newValue)
+        );
   }
 
   /**
@@ -59,6 +63,28 @@ public class TagHelper {
             .value(tag.getValue())
             .build())
         .collect(Collectors.toSet());
+  }
+
+  public static List<software.amazon.qbusiness.application.Tag> cfnTagsFromServiceTags(
+      List<Tag> serviceTags
+  ) {
+    return serviceTags.stream()
+        .map(serviceTag -> new software.amazon.qbusiness.application.Tag(serviceTag.key(), serviceTag.value()))
+        .toList();
+  }
+
+  public static List<Tag> serviceTagsFromCfnTags(
+      Collection<software.amazon.qbusiness.application.Tag> modelTags
+  ) {
+    if (modelTags == null) {
+      return null;
+    }
+    return modelTags.stream()
+        .map(tag -> Tag.builder()
+            .key(tag.getKey())
+            .value(tag.getValue())
+            .build()
+        ).toList();
   }
 
   /**
@@ -154,28 +180,6 @@ public class TagHelper {
     return previousTags.keySet().stream()
         .filter(tagName -> !desiredTagNames.contains(tagName))
         .collect(Collectors.toSet());
-  }
-
-  public static List<software.amazon.qbusiness.retriever.Tag> cfnTagsFromServiceTags(
-      List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTags
-  ) {
-    return serviceTags.stream()
-        .map(serviceTag -> new software.amazon.qbusiness.retriever.Tag(serviceTag.key(), serviceTag.value()))
-        .toList();
-  }
-
-  public static List<software.amazon.awssdk.services.qbusiness.model.Tag> serviceTagsFromCfnTags(
-      Collection<software.amazon.qbusiness.retriever.Tag> modelTags
-  ) {
-    if (modelTags == null) {
-      return null;
-    }
-    return modelTags.stream()
-        .map(tag -> software.amazon.awssdk.services.qbusiness.model.Tag.builder()
-            .key(tag.getKey())
-            .value(tag.getValue())
-            .build()
-        ).toList();
   }
 
 }

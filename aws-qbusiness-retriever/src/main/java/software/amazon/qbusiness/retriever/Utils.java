@@ -1,39 +1,36 @@
-package software.amazon.qbusiness.datasource;
-
-import static software.amazon.qbusiness.datasource.Constants.SERVICE_NAME_LOWER;
+package software.amazon.qbusiness.retriever;
 
 import lombok.NonNull;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
+import java.util.Locale;
+
+import static software.amazon.qbusiness.retriever.Constants.SERVICE_NAME_LOWER;
+
+
 public class Utils {
 
-  // arn:${Partition}:qbusiness:${Region}:${Account}:application/${ApplicationId}/index/${IndexId}/data-source/${DataSourceId}
-  private static final String DATA_SOURCE_ARN_FORMAT = "arn:%s:" + SERVICE_NAME_LOWER + ":%s:%s:application/%s/index/%s/data-source/%s";
+  // arn:${Partition}:qbusiness:${Region}:${Account}:application/${ApplicationId}/retriever-source/${RetrieverId}
+  private static final String RETRIEVER_ARN_FORMAT = "arn:%s:" + SERVICE_NAME_LOWER + ":%s:%s:application/%s/retriever-source/%s";
 
   private Utils() {
   }
 
-  public static String buildDataSourceArn(
-      final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model
-  ) {
+  public static String buildRetrieverArn(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
     var partition = request.getAwsPartition();
     var region = request.getRegion();
     var accountId = request.getAwsAccountId();
     var applicationId = model.getApplicationId();
-    var indexId = model.getIndexId();
-    var dataSourceId = model.getDataSourceId();
-
-    return buildDataSourceArn(partition, region, accountId, applicationId, indexId, dataSourceId);
+    var retrieverId = model.getRetrieverId();
+    return buildRetrieverArn(partition, region, accountId, applicationId, retrieverId);
   }
 
-  private static String buildDataSourceArn(
+  private static String buildRetrieverArn(
       @NonNull String partition,
       @NonNull String region,
       @NonNull String accountId,
       @NonNull String applicationId,
-      @NonNull String indexId,
-      @NonNull String dataSourceId
-  ) {
-    return DATA_SOURCE_ARN_FORMAT.formatted(partition, region, accountId, applicationId, indexId, dataSourceId);
+      @NonNull String retrieverId) {
+    return RETRIEVER_ARN_FORMAT.formatted(partition, region, accountId, applicationId, retrieverId).toLowerCase(Locale.ENGLISH);
   }
 }

@@ -4,7 +4,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import software.amazon.awssdk.awscore.AwsRequest;
 import software.amazon.awssdk.awscore.AwsResponse;
-import software.amazon.awssdk.core.SdkClient;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.pagination.sync.SdkIterable;
@@ -24,7 +23,7 @@ public class AbstractTestBase {
   }
   static ProxyClient<QBusinessClient> MOCK_PROXY(
     final AmazonWebServicesClientProxy proxy,
-    final QBusinessClient qbusinessClient) {
+    final QBusinessClient sdkClient) {
     return new ProxyClient<QBusinessClient>() {
       @Override
       public <RequestT extends AwsRequest, ResponseT extends AwsResponse> ResponseT
@@ -60,7 +59,7 @@ public class AbstractTestBase {
 
       @Override
       public QBusinessClient client() {
-        return qbusinessClient;
+        return sdkClient;
       }
     };
   }

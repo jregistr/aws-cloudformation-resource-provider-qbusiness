@@ -66,7 +66,7 @@ public class CreateHandlerTest extends AbstractTestBase {
   private ProxyClient<QBusinessClient> proxyClient;
 
   @Mock
-  QBusinessClient qbusinessClient;
+  QBusinessClient QBusinessClient;
 
   private Constant testBackOff;
   private CreateHandler underTest;
@@ -80,8 +80,8 @@ public class CreateHandlerTest extends AbstractTestBase {
   public void setup() {
     testMocks = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-    qbusinessClient = mock(QBusinessClient.class);
-    proxyClient = MOCK_PROXY(proxy, qbusinessClient);
+    QBusinessClient = mock(QBusinessClient.class);
+    proxyClient = MOCK_PROXY(proxy, QBusinessClient);
 
     testBackOff = Constant.of()
         .delay(Duration.ofSeconds(5))
@@ -108,23 +108,23 @@ public class CreateHandlerTest extends AbstractTestBase {
 
   @AfterEach
   public void tear_down() throws Exception {
-    verify(qbusinessClient, atLeastOnce()).serviceName();
-    verifyNoMoreInteractions(qbusinessClient);
+    verify(QBusinessClient, atLeastOnce()).serviceName();
+    verifyNoMoreInteractions(QBusinessClient);
     testMocks.close();
   }
 
   @Test
   public void handleRequest_SimpleSuccess() {
     // set up scenario
-    when(qbusinessClient.createIndex(any(CreateIndexRequest.class)))
+    when(QBusinessClient.createIndex(any(CreateIndexRequest.class)))
         .thenReturn(CreateIndexResponse.builder()
             .indexId(INDEX_ID)
             .build()
         );
-    when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
+    when(QBusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
         .tags(List.of())
         .build());
-    when(qbusinessClient.getIndex(any(GetIndexRequest.class)))
+    when(QBusinessClient.getIndex(any(GetIndexRequest.class)))
         .thenReturn(GetIndexResponse.builder()
             .applicationId(APP_ID)
             .indexId(INDEX_ID)
@@ -154,11 +154,11 @@ public class CreateHandlerTest extends AbstractTestBase {
     assertThat(model.getStatus()).isEqualTo(IndexStatus.ACTIVE.toString());
     assertThat(model.getCapacityUnitConfiguration().getUnits()).isEqualTo(createModel.getCapacityUnitConfiguration().getUnits());
 
-    verify(qbusinessClient).createIndex(any(CreateIndexRequest.class));
-    verify(qbusinessClient, times(2)).getIndex(
+    verify(QBusinessClient).createIndex(any(CreateIndexRequest.class));
+    verify(QBusinessClient, times(2)).getIndex(
         argThat((ArgumentMatcher<GetIndexRequest>) t -> t.applicationId().equals(APP_ID) && t.indexId().equals(INDEX_ID))
     );
-    verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+    verify(QBusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
   }
 
   @Test
@@ -176,16 +176,16 @@ public class CreateHandlerTest extends AbstractTestBase {
             .build())
         .build();
 
-    when(qbusinessClient.createIndex(any(CreateIndexRequest.class)))
+    when(QBusinessClient.createIndex(any(CreateIndexRequest.class)))
         .thenReturn(CreateIndexResponse.builder()
             .indexId(INDEX_ID)
             .build()
         );
-    when(qbusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
+    when(QBusinessClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
         .tags(List.of())
         .build());
 
-    when(qbusinessClient.getIndex(any(GetIndexRequest.class)))
+    when(QBusinessClient.getIndex(any(GetIndexRequest.class)))
         .thenReturn(
             getResponse.toBuilder().status(IndexStatus.CREATING).build(),
             getResponse.toBuilder().status(IndexStatus.ACTIVE).build()
@@ -199,22 +199,22 @@ public class CreateHandlerTest extends AbstractTestBase {
     // verify
     assertThat(resultProgress).isNotNull();
     assertThat(resultProgress.isSuccess()).isTrue();
-    verify(qbusinessClient).createIndex(any(CreateIndexRequest.class));
-    verify(qbusinessClient, times(3)).getIndex(
+    verify(QBusinessClient).createIndex(any(CreateIndexRequest.class));
+    verify(QBusinessClient, times(3)).getIndex(
         argThat((ArgumentMatcher<GetIndexRequest>) t -> t.applicationId().equals(APP_ID) && t.indexId().equals(INDEX_ID))
     );
-    verify(qbusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
+    verify(QBusinessClient).listTagsForResource(any(ListTagsForResourceRequest.class));
   }
 
   @Test
   public void testItFailsWithErrorMessageWhenGetReturnsFailStatus() {
     // set up
-    when(qbusinessClient.createIndex(any(CreateIndexRequest.class)))
+    when(QBusinessClient.createIndex(any(CreateIndexRequest.class)))
         .thenReturn(CreateIndexResponse.builder()
             .indexId(INDEX_ID)
             .build()
         );
-    when(qbusinessClient.getIndex(any(GetIndexRequest.class)))
+    when(QBusinessClient.getIndex(any(GetIndexRequest.class)))
         .thenReturn(GetIndexResponse.builder()
             .applicationId(APP_ID)
             .indexId(INDEX_ID)
@@ -234,8 +234,8 @@ public class CreateHandlerTest extends AbstractTestBase {
         proxy, testRequest, new CallbackContext(), proxyClient, logger
     )).isInstanceOf(CfnNotStabilizedException.class);
 
-    verify(qbusinessClient).createIndex(any(CreateIndexRequest.class));
-    verify(qbusinessClient).getIndex(any(GetIndexRequest.class));
+    verify(QBusinessClient).createIndex(any(CreateIndexRequest.class));
+    verify(QBusinessClient).getIndex(any(GetIndexRequest.class));
   }
 
   private static Stream<Arguments> createIndexErrorsAndExpectedCodes() {
@@ -256,7 +256,7 @@ public class CreateHandlerTest extends AbstractTestBase {
       final QBusinessException serviceError,
       final HandlerErrorCode expectedHandlerErrorCode) {
     // set up
-    when(qbusinessClient.createIndex(any(CreateIndexRequest.class)))
+    when(QBusinessClient.createIndex(any(CreateIndexRequest.class)))
         .thenThrow(serviceError);
 
     // call method under test
@@ -266,7 +266,7 @@ public class CreateHandlerTest extends AbstractTestBase {
 
     // verify
     assertThat(resultProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(qbusinessClient).createIndex(any(CreateIndexRequest.class));
+    verify(QBusinessClient).createIndex(any(CreateIndexRequest.class));
     assertThat(resultProgress.getErrorCode()).isEqualTo(expectedHandlerErrorCode);
   }
 }

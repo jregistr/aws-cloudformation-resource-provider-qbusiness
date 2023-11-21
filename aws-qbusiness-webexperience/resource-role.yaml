@@ -30,6 +30,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                - "iam:PassRole"
                 - "qbusiness:CreateWebExperience"
                 - "qbusiness:DeleteWebExperience"
                 - "qbusiness:GetWebExperience"
@@ -38,7 +39,6 @@ Resources:
                 - "qbusiness:TagResource"
                 - "qbusiness:UntagResource"
                 - "qbusiness:UpdateWebExperience"
-                - "iam:PassRole"
                 Resource: "*"
 Outputs:
   ExecutionRoleArn:

@@ -1,31 +1,32 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.datasource;
+
+import static software.amazon.qbusiness.datasource.translators.DataSourceConfigurationTranslator.fromServiceDataSourceConfiguration;
+import static software.amazon.qbusiness.datasource.translators.DataSourceConfigurationTranslator.toServiceDataSourceConfiguration;
+import static software.amazon.qbusiness.datasource.translators.DocumentEnrichmentTranslator.fromServiceDocEnrichmentConf;
+import static software.amazon.qbusiness.datasource.translators.DocumentEnrichmentTranslator.toServiceDocEnrichmentConf;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
-import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.DeleteApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
-import software.amazon.awssdk.services.qbusiness.model.ListApplicationsRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListApplicationsResponse;
+import software.amazon.awssdk.awscore.AwsRequest;
+import software.amazon.awssdk.services.qbusiness.model.CreateDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.DeleteDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
-import software.amazon.awssdk.services.qbusiness.model.UpdateApplicationRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateDataSourceRequest;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-/**
- * This class is a centralized placeholder for
- * - api request construction
- * - object translation to/from aws sdk
- * - resource model construction for read/list handlers
- */
 
 public class Translator {
 
@@ -35,15 +36,19 @@ public class Translator {
    * @param model resource model
    * @return awsRequest the aws service request to create a resource
    */
-  static CreateApplicationRequest translateToCreateRequest(final String idempotentToken, final ResourceModel model) {
-    return CreateApplicationRequest.builder()
-        .clientToken(idempotentToken)
+  static CreateDataSourceRequest translateToCreateRequest(final String idempotencyToken, final ResourceModel model) {
+    return CreateDataSourceRequest.builder()
+        .clientToken(idempotencyToken)
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
         .displayName(model.getDisplayName())
-        .roleArn(model.getRoleArn())
         .description(model.getDescription())
-        .encryptionConfiguration(toServiceEncryptionConfig(model.getEncryptionConfiguration()))
-        .attachmentsConfiguration(toServiceAttachmentConfiguration(model.getAttachmentsConfiguration()))
+        .roleArn(model.getRoleArn())
+        .schedule(model.getSchedule())
         .tags(TagHelper.serviceTagsFromCfnTags(model.getTags()))
+        .vpcConfiguration(toServiceDataSourceVpcConfiguration(model.getVpcConfiguration()))
+        .configuration(toServiceDataSourceConfiguration(model.getConfiguration()))
+        .customDocumentEnrichmentConfiguration(toServiceDocEnrichmentConf(model.getCustomDocumentEnrichmentConfiguration()))
         .build();
   }
 
@@ -51,94 +56,69 @@ public class Translator {
    * Request to read a resource
    *
    * @param model resource model
-   * @return awsRequest the aws service request to read a resource
+   * @return awsRequest the aws service request to describe a resource
    */
-  static GetApplicationRequest translateToReadRequest(final ResourceModel model) {
-    return GetApplicationRequest.builder()
+  static GetDataSourceRequest translateToReadRequest(final ResourceModel model) {
+    return GetDataSourceRequest.builder()
         .applicationId(model.getApplicationId())
-        .build();
-  }
-
-  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
-    var applicationArn = Utils.buildApplicationArn(request, model);
-
-    return ListTagsForResourceRequest.builder()
-        .resourceARN(applicationArn)
+        .indexId(model.getIndexId())
+        .dataSourceId(model.getDataSourceId())
         .build();
   }
 
   /**
    * Translates resource object from sdk into a resource model
    *
-   * @param awsResponse the aws service get resource response
+   * @param awsResponse the aws service describe resource response
    * @return model resource model
    */
-  static ResourceModel translateFromReadResponse(final GetApplicationResponse awsResponse) {
+  static ResourceModel translateFromReadResponse(final GetDataSourceResponse awsResponse) {
     return ResourceModel.builder()
-        .displayName(awsResponse.displayName())
         .applicationId(awsResponse.applicationId())
-        .roleArn(awsResponse.roleArn())
-        .status(awsResponse.statusAsString())
+        .indexId(awsResponse.indexId())
+        .dataSourceId(awsResponse.dataSourceId())
+        .displayName(awsResponse.displayName())
         .description(awsResponse.description())
         .createdAt(instantToString(awsResponse.createdAt()))
         .updatedAt(instantToString(awsResponse.updatedAt()))
-        .encryptionConfiguration(fromServiceEncryptionConfig(awsResponse.encryptionConfiguration()))
-        .attachmentsConfiguration(fromServiceAttachmentConfiguration(awsResponse.attachmentsConfiguration()))
+        .roleArn(awsResponse.roleArn())
+        .schedule(awsResponse.schedule())
+        .type(awsResponse.typeAsString())
+        .status(awsResponse.statusAsString())
+        .vpcConfiguration(fromServiceDataSourceVpcConfiguration(awsResponse.vpcConfiguration()))
+        .configuration(fromServiceDataSourceConfiguration(awsResponse.configuration()))
+        .customDocumentEnrichmentConfiguration(fromServiceDocEnrichmentConf(awsResponse.customDocumentEnrichmentConfiguration()))
         .build();
   }
 
-  static String instantToString(Instant instant) {
-    return Optional.ofNullable(instant)
-        .map(Instant::toString)
+  static DataSourceVpcConfiguration fromServiceDataSourceVpcConfiguration(
+      software.amazon.awssdk.services.qbusiness.model.DataSourceVpcConfiguration maybeServiceConf
+  ) {
+    return Optional.ofNullable(maybeServiceConf)
+        .map(serviceConf -> DataSourceVpcConfiguration.builder()
+            .subnetIds(serviceConf.subnetIds())
+            .securityGroupIds(serviceConf.securityGroupIds())
+            .build())
         .orElse(null);
   }
 
-  static EncryptionConfiguration fromServiceEncryptionConfig(
-      software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration serviceConfig
+  static software.amazon.awssdk.services.qbusiness.model.DataSourceVpcConfiguration toServiceDataSourceVpcConfiguration(
+      DataSourceVpcConfiguration modelData
   ) {
-    if (serviceConfig == null) {
+    if (modelData == null) {
       return null;
     }
 
-    return EncryptionConfiguration.builder()
-        .kmsKeyId(serviceConfig.kmsKeyId())
+    return software.amazon.awssdk.services.qbusiness.model.DataSourceVpcConfiguration.builder()
+        .subnetIds(modelData.getSubnetIds())
+        .securityGroupIds(modelData.getSecurityGroupIds())
         .build();
   }
 
-  static software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration toServiceEncryptionConfig(
-      EncryptionConfiguration modelConfig
-  ) {
-    if (modelConfig == null) {
-      return null;
-    }
-
-    return software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration.builder()
-        .kmsKeyId(modelConfig.getKmsKeyId())
-        .build();
-  }
-
-  static AttachmentsConfiguration fromServiceAttachmentConfiguration(
-      software.amazon.awssdk.services.qbusiness.model.AppliedAttachmentsConfiguration serviceConfig
-  ) {
-    if (serviceConfig == null) {
-      return null;
-    }
-
-    return AttachmentsConfiguration.builder()
-        .attachmentsControlMode(serviceConfig.attachmentsControlModeAsString())
-        .build();
-  }
-
-  static software.amazon.awssdk.services.qbusiness.model.AttachmentsConfiguration toServiceAttachmentConfiguration(
-      AttachmentsConfiguration modelConfig
-  ) {
-    if (modelConfig == null) {
-      return null;
-    }
-
-    return software.amazon.awssdk.services.qbusiness.model.AttachmentsConfiguration.builder()
-        .attachmentsControlMode(modelConfig.getAttachmentsControlMode())
-        .build();
+  public static String instantToString(Instant instant) {
+    return Optional.ofNullable(instant)
+        .map(Instant::toString)
+        .orElse(null);
   }
 
   static ResourceModel translateFromReadResponseWithTags(final ListTagsForResourceResponse listTagsResponse, final ResourceModel model) {
@@ -151,15 +131,24 @@ public class Translator {
         .build();
   }
 
+  static ListTagsForResourceRequest translateToListTagsRequest(final ResourceHandlerRequest<ResourceModel> request, final ResourceModel model) {
+    var dataSourceArn = Utils.buildDataSourceArn(request, model);
+    return ListTagsForResourceRequest.builder()
+        .resourceARN(dataSourceArn)
+        .build();
+  }
+
   /**
    * Request to delete a resource
    *
    * @param model resource model
-   * @return DeleteApplicationRequest - the aws service request to delete a resource.
+   * @return awsRequest the aws service request to delete a resource
    */
-  static DeleteApplicationRequest translateToDeleteRequest(final ResourceModel model) {
-    return DeleteApplicationRequest.builder()
+  static DeleteDataSourceRequest translateToDeleteRequest(final ResourceModel model) {
+    return DeleteDataSourceRequest.builder()
         .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .dataSourceId(model.getDataSourceId())
         .build();
   }
 
@@ -167,16 +156,33 @@ public class Translator {
    * Request to update properties of a previously created resource
    *
    * @param model resource model
+   * @return UpdateDataSourceRequest the aws service request to modify a resource
+   */
+  static UpdateDataSourceRequest translateToUpdateRequest(final ResourceModel model) {
+    return UpdateDataSourceRequest.builder()
+        .applicationId(model.getApplicationId())
+        .indexId(model.getIndexId())
+        .dataSourceId(model.getDataSourceId())
+        .description(model.getDescription())
+        .displayName(model.getDisplayName())
+        .roleArn(model.getRoleArn())
+        .schedule(model.getSchedule())
+        .vpcConfiguration(toServiceDataSourceVpcConfiguration(model.getVpcConfiguration()))
+        .configuration(toServiceDataSourceConfiguration(model.getConfiguration()))
+        .customDocumentEnrichmentConfiguration(toServiceDocEnrichmentConf(model.getCustomDocumentEnrichmentConfiguration()))
+        .build();
+  }
+
+  /**
+   * Request to update some other properties that could not be provisioned through first update request
+   *
+   * @param model resource model
    * @return awsRequest the aws service request to modify a resource
    */
-  static UpdateApplicationRequest translateToUpdateRequest(final ResourceModel model) {
-    return UpdateApplicationRequest.builder()
-        .applicationId(model.getApplicationId())
-        .displayName(model.getDisplayName())
-        .description(model.getDescription())
-        .roleArn(model.getRoleArn())
-        .attachmentsConfiguration(toServiceAttachmentConfiguration(model.getAttachmentsConfiguration()))
-        .build();
+  static AwsRequest translateToSecondUpdateRequest(final ResourceModel model) {
+    final AwsRequest awsRequest = null;
+    // TODO: construct a request
+    return awsRequest;
   }
 
   /**
@@ -185,8 +191,13 @@ public class Translator {
    * @param nextToken token passed to the aws service list resources request
    * @return awsRequest the aws service request to list resources within aws account
    */
-  static ListApplicationsRequest translateToListRequest(final String nextToken) {
-    return ListApplicationsRequest.builder()
+  static ListDataSourcesRequest translateToListRequest(
+      ResourceModel resourceModel,
+      final String nextToken
+  ) {
+    return ListDataSourcesRequest.builder()
+        .applicationId(resourceModel.getApplicationId())
+        .indexId(resourceModel.getIndexId())
         .nextToken(nextToken)
         .build();
   }
@@ -194,32 +205,43 @@ public class Translator {
   /**
    * Translates resource objects from sdk into a resource model (primary identifier only)
    *
-   * @param serviceResponse the aws service get resource response
+   * @param applicationId   - The id of the application to list data sources.
+   * @param indexId         - The parent index id.
+   * @param serviceResponse - the aws service describe resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListResponse(final ListApplicationsResponse serviceResponse) {
-    return serviceResponse.applications()
-        .stream()
-        .map(application -> ResourceModel.builder()
-            .applicationId(application.applicationId())
+  static List<ResourceModel> translateFromListResponse(
+      final String applicationId,
+      final String indexId,
+      final ListDataSourcesResponse serviceResponse) {
+    return streamOfOrEmpty(serviceResponse.dataSources())
+        .map(dataSource -> ResourceModel.builder()
+            .applicationId(applicationId)
+            .indexId(indexId)
+            .dataSourceId(dataSource.dataSourceId())
             .build()
         )
         .toList();
+  }
+
+  private static <T> Stream<T> streamOfOrEmpty(final Collection<T> collection) {
+    return Optional.ofNullable(collection).stream()
+        .flatMap(Collection::stream);
   }
 
   /**
    * Request to add tags to a resource
    *
    * @param model resource model
-   * @return TagResourceRequest the aws service request to create a resource
+   * @return awsRequest the aws service request to create a resource
    */
   static TagResourceRequest tagResourceRequest(
       final ResourceHandlerRequest<ResourceModel> request,
       final ResourceModel model,
       final Map<String, String> addedTags) {
-    var applicationArn = Utils.buildApplicationArn(request, model);
+    var dataSourceArn = Utils.buildDataSourceArn(request, model);
 
-    List<Tag> toTags = Optional.ofNullable(addedTags)
+    List<software.amazon.awssdk.services.qbusiness.model.Tag> toTags = Optional.ofNullable(addedTags)
         .map(Map::entrySet)
         .map(pairs -> pairs.stream()
             .map(pair -> Tag.builder()
@@ -233,7 +255,7 @@ public class Translator {
         .orElse(null);
 
     return TagResourceRequest.builder()
-        .resourceARN(applicationArn)
+        .resourceARN(dataSourceArn)
         .tags(toTags)
         .build();
   }
@@ -248,14 +270,15 @@ public class Translator {
       final ResourceHandlerRequest<ResourceModel> request,
       final ResourceModel model,
       final Set<String> removedTags) {
-    var applicationArn = Utils.buildApplicationArn(request, model);
+    var dataSourceArn = Utils.buildDataSourceArn(request, model);
     var tagsToRemove = Optional.ofNullable(removedTags)
         .filter(set -> !set.isEmpty())
         .orElse(null);
 
     return UntagResourceRequest.builder()
-        .resourceARN(applicationArn)
+        .resourceARN(dataSourceArn)
         .tagKeys(tagsToRemove)
         .build();
   }
+
 }

@@ -1,13 +1,15 @@
-package software.amazon.qbusiness.plugin;
+package software.amazon.qbusiness.index;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
+import software.amazon.awssdk.services.qbusiness.model.GetIndexResponse;
+import software.amazon.awssdk.services.qbusiness.model.IndexStatus;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceResponse;
-import software.amazon.awssdk.services.qbusiness.model.UpdatePluginRequest;
-import software.amazon.awssdk.services.qbusiness.model.UpdatePluginResponse;
+import software.amazon.awssdk.services.qbusiness.model.UpdateIndexRequest;
+import software.amazon.awssdk.services.qbusiness.model.UpdateIndexResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
@@ -19,99 +21,121 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 
-import static software.amazon.qbusiness.plugin.Constants.API_UPDATE_PLUGIN;
+import static software.amazon.qbusiness.index.Constants.API_UPDATE_INDEX;
 
 public class UpdateHandler extends BaseHandlerStd {
-  private Logger logger;
 
-  private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
-          .timeout(Duration.ofHours(4))
-          .delay(Duration.ofMinutes(2))
-          .build();
+  public static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
+      .timeout(Duration.ofHours(2))
+      .delay(Duration.ofMinutes(2))
+      .build();
+
   private final Constant backOffStrategy;
-private final TagHelper tagHelper;
+  private final TagHelper tagHelper;
+  private Logger logger;
 
   public UpdateHandler() {
     this(DEFAULT_BACK_OFF_STRATEGY, new TagHelper());
   }
 
   public UpdateHandler(Constant backOffStrategy, TagHelper tagHelper) {
-
     this.backOffStrategy = backOffStrategy;
     this.tagHelper = tagHelper;
-
   }
 
-
   protected ProgressEvent<ResourceModel, CallbackContext> handleRequest(
-          final AmazonWebServicesClientProxy proxy,
-          final ResourceHandlerRequest<ResourceModel> request,
-          final CallbackContext callbackContext,
-          final ProxyClient<QBusinessClient> proxyClient,
-          final Logger logger) {
+      final AmazonWebServicesClientProxy proxy,
+      final ResourceHandlerRequest<ResourceModel> request,
+      final CallbackContext callbackContext,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final Logger logger) {
 
     this.logger = logger;
 
-    this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, PluginId: %s] Entering Update Handler"
-            .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getPluginId()));
+    logger.log("[INFO] Starting Update for %s with ApplicationId: %s and IndexId: %s in stack: %s".formatted(
+        ResourceModel.TYPE_NAME,
+        request.getDesiredResourceState().getApplicationId(),
+        request.getDesiredResourceState().getIndexId(),
+        request.getStackId()
+    ));
 
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
-            .then(progress ->
-                    proxy.initiate("AWS-QBusiness-Plugin::Update", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
-                            .translateToServiceRequest(model -> Translator.translateToUpdateRequest(model))
-                            .backoffDelay(backOffStrategy)
-                            .makeServiceCall((awsRequest, clientProxyClient) -> callUpdatePlugin(awsRequest, clientProxyClient))
-                            .handleError((describeApplicationRequest, error, client, model, context) ->
-                                    handleError(describeApplicationRequest, model, error, context, logger, API_UPDATE_PLUGIN))
-                            .progress())
+        .then(progress ->
+            proxy.initiate("AWS-QBusiness-Index::Update", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                .translateToServiceRequest(Translator::translateToUpdateRequest)
+                .backoffDelay(backOffStrategy)
+                .makeServiceCall(this::updateIndex)
+                .stabilize((serviceRequest, updateIndexResponse, client, model, context) -> isStabilized(client, model))
+                .handleError((serviceRequest, error, client, model, context) -> handleError(
+                    serviceRequest, model, error, context, logger, API_UPDATE_INDEX
+                ))
+                .progress()
+        )
+        .then(progress -> {
+          if (!tagHelper.shouldUpdateTags(request)) {
+            // No updates to tags needed, return early with get application. Since ReadHandler will return Done, this will be the last step
+            return readHandler(proxy, request, callbackContext, proxyClient);
+          }
 
-            .then(progress -> {
-              if (!tagHelper.shouldUpdateTags(request)) {
-                return progress;
-              }
+          Map<String, String> tagsToAdd = tagHelper.generateTagsToAdd(
+              tagHelper.getPreviouslyAttachedTags(request),
+              tagHelper.getNewDesiredTags(request)
+          );
 
-              Map<String, String> tagsToAdd = tagHelper.generateTagsToAdd(
-                  tagHelper.getPreviouslyAttachedTags(request),
-                  tagHelper.getNewDesiredTags(request)
-              );
+          if (tagsToAdd == null || tagsToAdd.isEmpty()) {
+            return progress;
+          }
 
-              if (tagsToAdd == null || tagsToAdd.isEmpty()) {
-                return progress;
-              }
+          return proxy.initiate(
+              "AWS-QBusiness-Index::TagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+              .translateToServiceRequest(model -> Translator.tagResourceRequest(request, model, tagsToAdd))
+              .makeServiceCall(this::callTagResource)
+              .progress();
+        })
+        .then(progress -> {
+          Set<String> tagsToRemove = tagHelper.generateTagsToRemove(
+              tagHelper.getPreviouslyAttachedTags(request),
+              tagHelper.getNewDesiredTags(request)
+          );
 
-              return proxy.initiate("AWS-QBusiness-Plugin::TagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
-                  .translateToServiceRequest(model -> {
-                    return Translator.tagResourceRequest(request, tagsToAdd);
-                  })
-                  .makeServiceCall(this::callTagResource)
-                  .progress();
-            })
-            .then(progress -> {
-              Set<String> tagsToRemove = tagHelper.generateTagsToRemove(
-                  tagHelper.getPreviouslyAttachedTags(request),
-                  tagHelper.getNewDesiredTags(request)
-              );
+          if (CollectionUtils.isEmpty(tagsToRemove)) {
+            return progress;
+          }
 
-              if (CollectionUtils.isEmpty(tagsToRemove)) {
-                return progress;
-              }
-
-          return proxy.initiate("AWS-QBusiness-Application::UnTagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
-              .translateToServiceRequest(model -> Translator.untagResourceRequest(request, tagsToRemove))
+          return proxy.initiate(
+              "AWS-QBusiness-Index::UnTagResource", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+              .translateToServiceRequest(model -> Translator.untagResourceRequest(request, model, tagsToRemove))
               .makeServiceCall(this::callUntagResource)
               .progress();
         })
-            .then(progress ->
-                    new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger)
-            );
+        .then(model -> readHandler(proxy, request, callbackContext, proxyClient));
   }
 
-  private UpdatePluginResponse callUpdatePlugin(UpdatePluginRequest request,
-                                                ProxyClient<QBusinessClient> client) {
-    return client.injectCredentialsAndInvokeV2(request, client.client()::updatePlugin);
+  private ProgressEvent<ResourceModel, CallbackContext> readHandler(
+      final AmazonWebServicesClientProxy proxy,
+      final ResourceHandlerRequest<ResourceModel> request,
+      final CallbackContext callbackContext,
+      final ProxyClient<QBusinessClient> proxyClient) {
+    return new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger);
   }
 
-  private TagResourceResponse callTagResource(TagResourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
+  private UpdateIndexResponse updateIndex(final UpdateIndexRequest request, final ProxyClient<QBusinessClient> proxyClient) {
+    var client = proxyClient.client();
+    return proxyClient.injectCredentialsAndInvokeV2(request, client::updateIndex);
+  }
+
+  private boolean isStabilized(
+      final ProxyClient<QBusinessClient> proxyClient,
+      final ResourceModel model) {
+    GetIndexResponse getIndexResponse = getIndex(model, proxyClient, logger);
+    final IndexStatus status = getIndexResponse.status();
+    final boolean hasStabilized = IndexStatus.ACTIVE.equals(status);
+    logger.log("[INFO] %s with ApplicationId: %s and IndexId: %s has stabilized."
+        .formatted(ResourceModel.TYPE_NAME, model.getApplicationId(), model.getIndexId()));
+    return hasStabilized;
+  }
+
+  private TagResourceResponse callTagResource(final TagResourceRequest request, final ProxyClient<QBusinessClient> proxyClient) {
     if (!request.hasTags()) {
       return TagResourceResponse.builder().build();
     }
@@ -119,12 +143,11 @@ private final TagHelper tagHelper;
     return proxyClient.injectCredentialsAndInvokeV2(request, client::tagResource);
   }
 
-  private UntagResourceResponse callUntagResource(UntagResourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
+  private UntagResourceResponse callUntagResource(final UntagResourceRequest request, final ProxyClient<QBusinessClient> proxyClient) {
     if (!request.hasTagKeys()) {
       return UntagResourceResponse.builder().build();
     }
     var client = proxyClient.client();
     return proxyClient.injectCredentialsAndInvokeV2(request, client::untagResource);
   }
-
 }

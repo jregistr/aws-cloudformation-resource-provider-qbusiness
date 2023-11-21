@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.datasource;
+package software.amazon.qbusiness.webexperience;
 
 import java.util.Optional;
 
@@ -8,14 +8,15 @@ import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
 import software.amazon.awssdk.services.qbusiness.model.ConflictException;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetWebExperienceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
 import software.amazon.awssdk.services.qbusiness.model.ServiceQuotaExceededException;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
+import software.amazon.awssdk.utils.StringUtils;
 import software.amazon.cloudformation.exceptions.BaseHandlerException;
 import software.amazon.cloudformation.exceptions.CfnAccessDeniedException;
 import software.amazon.cloudformation.exceptions.CfnGeneralServiceException;
@@ -33,53 +34,50 @@ import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 public abstract class BaseHandlerStd extends BaseHandler<CallbackContext> {
   @Override
   public final ProgressEvent<ResourceModel, CallbackContext> handleRequest(
-      final AmazonWebServicesClientProxy proxy,
-      final ResourceHandlerRequest<ResourceModel> request,
-      final CallbackContext callbackContext,
-      final Logger logger) {
+    final AmazonWebServicesClientProxy proxy,
+    final ResourceHandlerRequest<ResourceModel> request,
+    final CallbackContext callbackContext,
+    final Logger logger) {
     return handleRequest(
-        proxy,
-        request,
-        callbackContext != null ? callbackContext : new CallbackContext(),
-        proxy.newProxy(ClientBuilder::getClient),
-        logger
+      proxy,
+      request,
+      callbackContext != null ? callbackContext : new CallbackContext(),
+      proxy.newProxy(ClientBuilder::getClient),
+      logger
     );
   }
 
   protected abstract ProgressEvent<ResourceModel, CallbackContext> handleRequest(
-      final AmazonWebServicesClientProxy proxy,
-      final ResourceHandlerRequest<ResourceModel> request,
-      final CallbackContext callbackContext,
-      final ProxyClient<QBusinessClient> proxyClient,
-      final Logger logger);
+    final AmazonWebServicesClientProxy proxy,
+    final ResourceHandlerRequest<ResourceModel> request,
+    final CallbackContext callbackContext,
+    final ProxyClient<QBusinessClient> proxyClient,
+    final Logger logger);
 
   protected ListTagsForResourceResponse callListTags(ListTagsForResourceRequest request, ProxyClient<QBusinessClient> client) {
     return client.injectCredentialsAndInvokeV2(request, client.client()::listTagsForResource);
   }
 
-  protected GetDataSourceResponse getDataSource(ResourceModel model, ProxyClient<QBusinessClient> proxyClient) {
-    var request = GetDataSourceRequest.builder()
-        .applicationId(model.getApplicationId())
-        .indexId(model.getIndexId())
-        .dataSourceId(model.getDataSourceId())
-        .build();
-    return callGetDataSource(request, proxyClient);
-  }
+  protected GetWebExperienceResponse getWebExperience(ResourceModel model, ProxyClient<QBusinessClient> proxyClient, Logger logger) {
+    if (StringUtils.isBlank(model.getApplicationId()) || StringUtils.isBlank(model.getWebExperienceId())) {
+      logger.log("[ERROR] Unexpected call to get web experience with a null or empty application ID %s or web experience ID: %s"
+          .formatted(model.getApplicationId(), model.getWebExperienceId()));
+      throw new NullPointerException();
+    }
 
-  protected GetDataSourceResponse callGetDataSource(GetDataSourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
-    var client = proxyClient.client();
-    return proxyClient.injectCredentialsAndInvokeV2(request, client::getDataSource);
+    GetWebExperienceRequest getWebExperienceRequest = Translator.translateToReadRequest(model);
+    return proxyClient.injectCredentialsAndInvokeV2(getWebExperienceRequest, proxyClient.client()::getWebExperience);
   }
 
   protected ProgressEvent<ResourceModel, CallbackContext> handleError(
-      QBusinessRequest qbusinessRequest,
-      ResourceModel resourceModel,
-      Exception error,
-      CallbackContext context,
-      Logger logger,
-      String apiName
-  ) {
-    logger.log("[ERROR] Failed Request: %s to API: %s. Error Message: %s".formatted(qbusinessRequest, apiName, error.getMessage()));
+      final QBusinessRequest qBusinessRequest,
+      final ResourceModel resourceModel,
+      final Exception error,
+      final CallbackContext context,
+      final Logger logger,
+      final String apiName) {
+
+    logger.log("[ERROR] Failed Request: %s to API: %s. Error Message: %s".formatted(qBusinessRequest, apiName, error.getMessage()));
     BaseHandlerException cfnException;
 
     var primaryIdentifier = Optional.ofNullable(resourceModel)
@@ -87,18 +85,18 @@ public abstract class BaseHandlerStd extends BaseHandler<CallbackContext> {
         .map(JSONObject::toString)
         .orElse("");
 
-    if (error instanceof ValidationException) {
-      cfnException = new CfnInvalidRequestException(error);
-    } else if (error instanceof ConflictException) {
-      cfnException = new CfnResourceConflictException(error);
-    } else if (error instanceof ResourceNotFoundException) {
+    if (error instanceof ResourceNotFoundException) {
       cfnException = new CfnNotFoundException(ResourceModel.TYPE_NAME, primaryIdentifier, error);
-    } else if (error instanceof ServiceQuotaExceededException) {
-      cfnException = new CfnServiceLimitExceededException(error);
+    } else if (error instanceof ValidationException) {
+      cfnException = new CfnInvalidRequestException(error);
     } else if (error instanceof ThrottlingException) {
       cfnException = new CfnThrottlingException(apiName, error);
+    } else if (error instanceof ConflictException) {
+      cfnException = new CfnResourceConflictException(error);
     } else if (error instanceof AccessDeniedException) {
       cfnException = new CfnAccessDeniedException(apiName, error);
+    } else if (error instanceof ServiceQuotaExceededException) {
+      cfnException = new CfnServiceLimitExceededException(error);
     } else {
       cfnException = new CfnGeneralServiceException(error);
     }

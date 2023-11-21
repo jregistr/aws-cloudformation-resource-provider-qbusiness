@@ -1,9 +1,9 @@
-package software.amazon.qbusiness.application;
+package software.amazon.qbusiness.datasource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -20,23 +20,33 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import software.amazon.awssdk.core.document.Document;
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
 import software.amazon.awssdk.services.qbusiness.model.AccessDeniedException;
-import software.amazon.awssdk.services.qbusiness.model.ApplicationStatus;
-import software.amazon.awssdk.services.qbusiness.model.AppliedAttachmentsConfiguration;
-import software.amazon.awssdk.services.qbusiness.model.AttachmentsControlMode;
-import software.amazon.awssdk.services.qbusiness.model.EncryptionConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceStatus;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceType;
+import software.amazon.awssdk.services.qbusiness.model.DataSourceVpcConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.DocumentAttributeCondition;
+import software.amazon.awssdk.services.qbusiness.model.DocumentAttributeTarget;
+import software.amazon.awssdk.services.qbusiness.model.DocumentAttributeValue;
+import software.amazon.awssdk.services.qbusiness.model.DocumentContentOperator;
+import software.amazon.awssdk.services.qbusiness.model.DocumentEnrichmentConditionOperator;
+import software.amazon.awssdk.services.qbusiness.model.DocumentEnrichmentConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.QBusinessException;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetApplicationResponse;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceRequest;
+import software.amazon.awssdk.services.qbusiness.model.GetDataSourceResponse;
+import software.amazon.awssdk.services.qbusiness.model.HookConfiguration;
+import software.amazon.awssdk.services.qbusiness.model.InlineDocumentEnrichmentConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.InternalServerException;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.ListTagsForResourceResponse;
 import software.amazon.awssdk.services.qbusiness.model.ResourceNotFoundException;
-import software.amazon.awssdk.services.qbusiness.model.Tag;
+import software.amazon.awssdk.services.qbusiness.model.TemplateConfiguration;
 import software.amazon.awssdk.services.qbusiness.model.ThrottlingException;
 import software.amazon.awssdk.services.qbusiness.model.ValidationException;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
@@ -48,41 +58,40 @@ import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class ReadHandlerTest extends AbstractTestBase {
 
-  private static final String APP_ID = "63451660-1596-4f1a-a3c8-e5f4b33d9fe5";
+  private static final String APP_ID = "3f7bf9f2-205f-47af-8e35-804fc749fbf8";
+  private static final String INDEX_ID = "31b1150f-4988-4d79-8952-8cac97d54322";
+  private static final String DATA_SOURCE_ID = "b1d8bb25-bd6f-4bfd-8286-475b029b52a8";
 
-  @Mock
   private AmazonWebServicesClientProxy proxy;
-
-  @Mock
   private ProxyClient<QBusinessClient> proxyClient;
 
   @Mock
   private QBusinessClient sdkClient;
 
-  private AutoCloseable testMocks;
+  private AutoCloseable testAutoCloseable;
 
   private ReadHandler underTest;
-
-  private ResourceHandlerRequest<ResourceModel> testRequest;
+  private ResourceHandlerRequest<ResourceModel> request;
   private ResourceModel model;
 
   @BeforeEach
   public void setup() {
-    testMocks = MockitoAnnotations.openMocks(this);
+    testAutoCloseable = MockitoAnnotations.openMocks(this);
     proxy = new AmazonWebServicesClientProxy(logger, MOCK_CREDENTIALS, () -> Duration.ofSeconds(600).toMillis());
-    sdkClient = mock(QBusinessClient.class);
     proxyClient = MOCK_PROXY(proxy, sdkClient);
     underTest = new ReadHandler();
 
     model = ResourceModel.builder()
         .applicationId(APP_ID)
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
         .build();
-    testRequest = ResourceHandlerRequest.<ResourceModel>builder()
-        .desiredResourceState(model)
-        .awsAccountId("123456")
+
+    request = ResourceHandlerRequest.<ResourceModel>builder()
         .awsPartition("aws")
-        .region("us-east-1")
-        .stackId("Stack1")
+        .region("us-west-2")
+        .awsAccountId("111122223333")
+        .desiredResourceState(model)
         .build();
   }
 
@@ -91,159 +100,177 @@ public class ReadHandlerTest extends AbstractTestBase {
     verify(sdkClient, atLeastOnce()).serviceName();
     verifyNoMoreInteractions(sdkClient);
 
-    testMocks.close();
+    testAutoCloseable.close();
   }
 
   @Test
   public void handleRequest_SimpleSuccess() {
-    // set up test scenario
-    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(GetApplicationResponse.builder()
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenReturn(
+        GetDataSourceResponse.builder()
             .applicationId(APP_ID)
-            .roleArn("role1")
+            .indexId(INDEX_ID)
+            .dataSourceId(DATA_SOURCE_ID)
+            .displayName("WhatsInAName")
+            .description("A rose by any other name smells just as sweet.")
             .createdAt(Instant.ofEpochMilli(1697824935000L))
             .updatedAt(Instant.ofEpochMilli(1697839335000L))
-            .description("this is a description, there are many like it but this one is mine.")
-            .displayName("Foobar")
-            .status(ApplicationStatus.ACTIVE)
-            .encryptionConfiguration(EncryptionConfiguration.builder()
-                .kmsKeyId("keyblade")
+            .status(DataSourceStatus.ACTIVE)
+            .roleArn("role1")
+            .schedule("0 12 * * 3")
+            .type(DataSourceType.S3)
+            .vpcConfiguration(DataSourceVpcConfiguration.builder()
+                .securityGroupIds("sec1", "sec2")
+                .subnetIds("sub1", "sub2")
                 .build())
-            .attachmentsConfiguration(AppliedAttachmentsConfiguration.builder()
-                .attachmentsControlMode(AttachmentsControlMode.ENABLED)
+            .configuration(DataSourceConfiguration.builder()
+                .templateConfiguration(TemplateConfiguration.builder()
+                    .template(Document.fromMap(
+                        Map.of(
+                            "BucketName", Document.fromString("TheBucket"),
+                            "AnotherOne", Document.fromMap(Map.of(
+                                "Hello", Document.fromString("World")
+                            ))
+                        )
+                    ))
+                    .build())
                 .build())
-            .build());
-    when(proxyClient.client().listTagsForResource(any(ListTagsForResourceRequest.class)))
-        .thenReturn(ListTagsForResourceResponse.builder()
-            .tags(List.of(Tag.builder()
-                .key("Category")
-                .value("Chat Stuff")
-                .build()))
-            .build());
+            .customDocumentEnrichmentConfiguration(DocumentEnrichmentConfiguration.builder()
+                .inlineConfigurations(InlineDocumentEnrichmentConfiguration.builder()
+                    .target(DocumentAttributeTarget.builder()
+                        .key("akey")
+                        .value(DocumentAttributeValue.builder().stringValue("strval").build())
+                        .build()
+                    )
+                    .documentContentOperator(DocumentContentOperator.DELETE)
+                    .condition(DocumentAttributeCondition.builder()
+                        .operator(DocumentEnrichmentConditionOperator.GREATER_THAN)
+                        .key("theval")
+                        .value(DocumentAttributeValue.builder().dateValue(Instant.ofEpochMilli(1699909984785L)).build())
+                        .build())
+                    .build()
+                )
+                .preExtractionHookConfiguration(HookConfiguration.builder()
+                    .roleArn("enrichrole")
+                    .lambdaArn("this-is-arn")
+                    .s3BucketName("this-is-s3-buck")
+                    .invocationCondition(DocumentAttributeCondition.builder()
+                        .key("key")
+                        .operator(DocumentEnrichmentConditionOperator.EQUALS)
+                        .value(DocumentAttributeValue.builder().longValue(11L).build())
+                        .build()
+                    )
+                    .build()
+                )
+                .postExtractionHookConfiguration(HookConfiguration.builder()
+                    .roleArn("enrichrole")
+                    .lambdaArn("this-is-arn")
+                    .s3BucketName("this-is-s3-buck")
+                    .invocationCondition(DocumentAttributeCondition.builder()
+                        .key("key")
+                        .operator(DocumentEnrichmentConditionOperator.EQUALS)
+                        .value(DocumentAttributeValue.builder().stringListValue("World", "Woah").build())
+                        .build()
+                    )
+                    .build()
+                )
+                .build()
+            )
+            .build()
+    );
+
+    when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenReturn(ListTagsForResourceResponse.builder()
+        .tags(List.of())
+        .build()
+    );
 
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
+        proxy, request, new CallbackContext(), proxyClient, logger
     );
 
-    // verify result
-    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
-    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
-
+    // verify
     assertThat(responseProgress).isNotNull();
     assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.SUCCESS);
-    assertThat(responseProgress.getResourceModels()).isNull();
-    assertThat(responseProgress.getMessage()).isNull();
-    assertThat(responseProgress.getErrorCode()).isNull();
-    ResourceModel resultModel = responseProgress.getResourceModel();
-    assertThat(resultModel.getDisplayName()).isEqualTo("Foobar");
-    assertThat(resultModel.getApplicationId()).isEqualTo(APP_ID);
-    assertThat(resultModel.getRoleArn()).isEqualTo("role1");
-    assertThat(resultModel.getCreatedAt()).isEqualTo("2023-10-20T18:02:15Z");
-    assertThat(resultModel.getUpdatedAt()).isEqualTo("2023-10-20T22:02:15Z");
-    assertThat(resultModel.getDescription()).isEqualTo("this is a description, there are many like it but this one is mine.");
-    assertThat(resultModel.getStatus()).isEqualTo(ApplicationStatus.ACTIVE.toString());
-    assertThat(resultModel.getEncryptionConfiguration().getKmsKeyId()).isEqualTo("keyblade");
-    assertThat(resultModel.getAttachmentsConfiguration().getAttachmentsControlMode()).isEqualTo(AttachmentsControlMode.ENABLED.toString());
+    verify(sdkClient).getDataSource(
+        argThat((ArgumentMatcher<GetDataSourceRequest>) t -> t.applicationId().equals(APP_ID) &&
+            t.indexId().equals(INDEX_ID) && t.dataSourceId().equals(DATA_SOURCE_ID)
+        )
+    );
 
-    var tags = resultModel.getTags().stream().map(tag -> Map.entry(tag.getKey(), tag.getValue())).toList();
-    assertThat(tags).isEqualTo(List.of(
-        Map.entry("Category", "Chat Stuff")
+    var expectedArn = "arn:aws:qbusiness:us-west-2:111122223333:application/%s/index/%s/data-source/%s".formatted(APP_ID, INDEX_ID, DATA_SOURCE_ID);
+    verify(sdkClient).listTagsForResource(argThat(
+        (ArgumentMatcher<ListTagsForResourceRequest>) t -> t.resourceARN().equals(expectedArn)
+    ));
+
+    var resultModel = responseProgress.getResourceModel();
+    Map<String, Object> template = resultModel.getConfiguration().getTemplateConfiguration().getTemplate();
+    assertThat(template.get("BucketName")).isEqualTo("TheBucket");
+    assertThat(template.get("AnotherOne")).isEqualTo(Map.of(
+        "Hello", "World"
     ));
   }
 
-  @Test
-  public void handleRequest_SimpleSuccess_withMissingProperties() {
-    // set up test scenario
-    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(GetApplicationResponse.builder()
-            .applicationId(APP_ID)
-            .roleArn("role1")
-            .createdAt(Instant.ofEpochMilli(1697824935000L))
-            .updatedAt(Instant.ofEpochMilli(1697839335000L))
-            .description("desc")
-            .displayName("Foobar")
-            .status(ApplicationStatus.ACTIVE)
-            .attachmentsConfiguration(AppliedAttachmentsConfiguration.builder()
-                .attachmentsControlMode(AttachmentsControlMode.ENABLED)
-                .build())
-            .build());
-
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
-    );
-
-    // verify result
-    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
-    verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
-    assertThat(responseProgress).isNotNull();
-    assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.SUCCESS);
-    assertThat(responseProgress.getResourceModels()).isNull();
-    assertThat(responseProgress.getMessage()).isNull();
-    assertThat(responseProgress.getErrorCode()).isNull();
-
-    ResourceModel resultModel = responseProgress.getResourceModel();
-    assertThat(resultModel.getEncryptionConfiguration()).isNull();
-  }
-
-  private static Stream<Arguments> serviceErrorAndExpectedCfnCode() {
+  private static Stream<Arguments> errorCodeExpects() {
     return Stream.of(
-        Arguments.of(ValidationException.builder().message("nopes").build(), HandlerErrorCode.InvalidRequest),
-        Arguments.of(ResourceNotFoundException.builder().message("404").build(), HandlerErrorCode.NotFound),
-        Arguments.of(ThrottlingException.builder().message("too much").build(), HandlerErrorCode.Throttling),
-        Arguments.of(AccessDeniedException.builder().message("denied!").build(), HandlerErrorCode.AccessDenied),
-        Arguments.of(InternalServerException.builder().message("something happened").build(), HandlerErrorCode.GeneralServiceException)
+        Arguments.of(ValidationException.builder().build(), HandlerErrorCode.InvalidRequest),
+        Arguments.of(ResourceNotFoundException.builder().build(), HandlerErrorCode.NotFound),
+        Arguments.of(ThrottlingException.builder().build(), HandlerErrorCode.Throttling),
+        Arguments.of(AccessDeniedException.builder().build(), HandlerErrorCode.AccessDenied),
+        Arguments.of(InternalServerException.builder().build(), HandlerErrorCode.GeneralServiceException)
     );
   }
 
   @ParameterizedTest
-  @MethodSource("serviceErrorAndExpectedCfnCode")
-  public void testThatItReturnsExpectedErrorCode(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
-    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
-        .thenThrow(serviceError);
+  @MethodSource("errorCodeExpects")
+  public void testThatItReturnsTheExpectedErrorCodeWhenGetDataSourceFails(
+      QBusinessException serviceError,
+      HandlerErrorCode expectedCfnErrorCode) {
+    // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenThrow(serviceError);
 
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    // call
+    var resultProgress = underTest.handleRequest(
+        proxy, request, new CallbackContext(), proxyClient, logger
     );
 
     // verify
-    assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
-    assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
-    assertThat(responseProgress.getResourceModels()).isNull();
+    assertThat(resultProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
+    verify(sdkClient).getDataSource(any(GetDataSourceRequest.class));
+    assertThat(resultProgress.getErrorCode()).isEqualTo(expectedCfnErrorCode);
   }
 
   @ParameterizedTest
-  @MethodSource("serviceErrorAndExpectedCfnCode")
-  public void testThatItReturnsExpectedErrorCodeWhenListTagsForResourceFails(QBusinessException serviceError, HandlerErrorCode cfnErrorCode) {
-    // set up test scenario
-    when(proxyClient.client().getApplication(any(GetApplicationRequest.class)))
-        .thenReturn(GetApplicationResponse.builder()
-            .applicationId(APP_ID)
-            .roleArn("role1")
-            .createdAt(Instant.ofEpochMilli(1697824935000L))
-            .updatedAt(Instant.ofEpochMilli(1697839335000L))
-            .description("desc")
-            .displayName("Foobar")
-            .status(ApplicationStatus.ACTIVE)
-            .build());
+  @MethodSource("errorCodeExpects")
+  public void testThatItReturnsExpectedErrorCodeWhenListTagsFails(
+      QBusinessException serviceError,
+      HandlerErrorCode expectedCfnErrorCode
+  ) {
+    // set up
+    when(sdkClient.getDataSource(any(GetDataSourceRequest.class))).thenReturn(GetDataSourceResponse.builder()
+        .applicationId(APP_ID)
+        .indexId(INDEX_ID)
+        .dataSourceId(DATA_SOURCE_ID)
+        .displayName("WhatsInAName")
+        .description("A rose by any other name smells just as sweet.")
+        .createdAt(Instant.ofEpochMilli(1697824935000L))
+        .updatedAt(Instant.ofEpochMilli(1697839335000L))
+        .status(DataSourceStatus.ACTIVE)
+        .roleArn("role1")
+        .schedule("0 12 * * 3")
+        .type(DataSourceType.S3)
+        .build()
+    );
+    when(sdkClient.listTagsForResource(any(ListTagsForResourceRequest.class))).thenThrow(serviceError);
 
-    when(proxyClient.client().listTagsForResource(any(ListTagsForResourceRequest.class)))
-        .thenThrow(serviceError);
-
-    // call method under test
-    final ProgressEvent<ResourceModel, CallbackContext> responseProgress = underTest.handleRequest(
-        proxy, testRequest, new CallbackContext(), proxyClient, logger
+    // call
+    var resultProgress = underTest.handleRequest(
+        proxy, request, new CallbackContext(), proxyClient, logger
     );
 
     // verify
-    assertThat(responseProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
-    verify(sdkClient).getApplication(any(GetApplicationRequest.class));
+    assertThat(resultProgress.getStatus()).isEqualTo(OperationStatus.FAILED);
+    verify(sdkClient).getDataSource(any(GetDataSourceRequest.class));
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
-    assertThat(responseProgress.getErrorCode()).isEqualTo(cfnErrorCode);
-    assertThat(responseProgress.getResourceModels()).isNull();
+    assertThat(resultProgress.getErrorCode()).isEqualTo(expectedCfnErrorCode);
   }
-
 }

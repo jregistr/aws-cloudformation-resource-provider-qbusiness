@@ -133,13 +133,13 @@
   "handlers": {
     "create": {
       "permissions": [
+        "iam:PassRole",
+        "kms:CreateGrant",
+        "kms:DescribeKey",
         "qbusiness:CreateApplication",
         "qbusiness:GetApplication",
         "qbusiness:ListTagsForResource",
-        "qbusiness:TagResource",
-        "iam:PassRole",
-        "kms:CreateGrant",
-        "kms:DescribeKey"
+        "qbusiness:TagResource"
       ]
     },
     "read": {
@@ -150,19 +150,19 @@
     },
     "update": {
       "permissions": [
+        "iam:PassRole",
         "qbusiness:GetApplication",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource",
         "qbusiness:UntagResource",
-        "qbusiness:UpdateApplication",
-        "iam:PassRole"
+        "qbusiness:UpdateApplication"
       ]
     },
     "delete": {
       "permissions": [
+        "kms:RetireGrant",
         "qbusiness:DeleteApplication",
-        "qbusiness:GetApplication",
-        "kms:RetireGrant"
+        "qbusiness:GetApplication"
       ]
     },
     "list": {

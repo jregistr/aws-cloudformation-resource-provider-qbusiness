@@ -33,7 +33,7 @@
             <version>1.18.30</version>
             <scope>provided</scope>
         </dependency>
-        <!-- QBusiness dependency -->
+        <!-- qbusiness dependency -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>qbusiness-internal</artifactId>

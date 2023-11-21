@@ -1,4 +1,4 @@
-package software.amazon.qbusiness.datasource;
+package software.amazon.qbusiness.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,9 +18,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.DataSource;
-import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesRequest;
-import software.amazon.awssdk.services.qbusiness.model.ListDataSourcesResponse;
+//import software.amazon.awssdk.services.qbusiness.model.ApplicationSummary;
+import software.amazon.awssdk.services.qbusiness.model.Application;
+import software.amazon.awssdk.services.qbusiness.model.ListApplicationsRequest;
+import software.amazon.awssdk.services.qbusiness.model.ListApplicationsResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
@@ -28,9 +29,7 @@ import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
 
 public class ListHandlerTest extends AbstractTestBase {
 
-  private static final String TEST_NEXT_TOKEN = "next-token";
-  private static final String APP_ID = "5d31a0e5-2d19-4ac3-90da-34534fa1d2df";
-  private static final String INDEX_ID = "9a2515e0-5760-4414-9fe2-c17e95406e5f";
+  private static final String TEST_NEXT_TOKEN = "this-is-next-token";
 
   private AmazonWebServicesClientProxy proxy;
   private ProxyClient<QBusinessClient> proxyClient;
@@ -42,7 +41,6 @@ public class ListHandlerTest extends AbstractTestBase {
   private ListHandler underTest;
 
   private ResourceHandlerRequest<ResourceModel> testRequest;
-  private ResourceModel model;
 
   @BeforeEach
   public void setup() {
@@ -51,14 +49,7 @@ public class ListHandlerTest extends AbstractTestBase {
     proxyClient = MOCK_PROXY(proxy, sdkClient);
 
     underTest = new ListHandler();
-
-    model = ResourceModel.builder()
-        .applicationId(APP_ID)
-        .indexId(INDEX_ID)
-        .build();
-
     testRequest = ResourceHandlerRequest.<ResourceModel>builder()
-        .desiredResourceState(model)
         .nextToken(TEST_NEXT_TOKEN)
         .build();
   }
@@ -71,21 +62,20 @@ public class ListHandlerTest extends AbstractTestBase {
 
   @Test
   public void handleRequest_SimpleSuccess() {
-    // set up
-    List<String> dataSourceIds = List.of(
-        "52868e5a-6cda-4380-a2fd-a50df21b66ea",
-        "406eb804-ccb5-49f3-a9b3-bd348b6e568f",
-        "6b77da76-3dd8-4614-ba6f-0956f6981a49"
+    // set up scenario
+    List<String> ids = List.of(
+        "a98163cb-407b-492c-85d7-a96ebc514eac",
+        "db6a3cc2-3de5-4ede-b802-80f107d63ad8",
+        "25e148e0-777d-4f30-b523-1f895c36cf55"
     );
-    when(sdkClient.listDataSources(any(ListDataSourcesRequest.class)))
-        .thenReturn(ListDataSourcesResponse.builder()
-            .nextToken("some-other-token")
-            .dataSources(dataSourceIds.stream()
-                .map(id -> DataSource.builder()
-                    .dataSourceId(id)
-                    .build()
-                )
-                .toList())
+    var listApplicationSummaries = ids.stream()
+        .map(id -> Application.builder()
+            .applicationId(id)
+            .build()
+        ).toList();
+    when(sdkClient.listApplications(any(ListApplicationsRequest.class)))
+        .thenReturn(ListApplicationsResponse.builder()
+            .applications(listApplicationSummaries)
             .build()
         );
 
@@ -99,15 +89,14 @@ public class ListHandlerTest extends AbstractTestBase {
     assertThat(resultProgress.isSuccess()).isTrue();
     assertThat(resultProgress.getResourceModel()).isNull();
     assertThat(resultProgress.getResourceModels()).isNotEmpty();
-    verify(sdkClient).listDataSources(
-        argThat((ArgumentMatcher<ListDataSourcesRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN) &&
-            t.applicationId().equals(APP_ID) && t.indexId().equals(INDEX_ID)
-        )
-    );
 
     var modelIds = resultProgress.getResourceModels().stream()
-        .map(ResourceModel::getDataSourceId)
+        .map(ResourceModel::getApplicationId)
         .toList();
-    assertThat(modelIds).isEqualTo(dataSourceIds);
+    assertThat(modelIds).isEqualTo(ids);
+
+    verify(sdkClient).listApplications(
+        argThat((ArgumentMatcher<ListApplicationsRequest>) t -> t.nextToken().equals(TEST_NEXT_TOKEN))
+    );
   }
 }

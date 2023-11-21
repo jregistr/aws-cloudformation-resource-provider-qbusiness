@@ -1,15 +1,13 @@
-package software.amazon.qbusiness.retriever;
+package software.amazon.qbusiness.application;
+
+import static software.amazon.qbusiness.application.Constants.API_GET_APPLICATION;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
-import software.amazon.awssdk.services.qbusiness.model.GetRetrieverRequest;
-import software.amazon.awssdk.services.qbusiness.model.GetRetrieverResponse;
 import software.amazon.cloudformation.proxy.AmazonWebServicesClientProxy;
 import software.amazon.cloudformation.proxy.Logger;
 import software.amazon.cloudformation.proxy.ProgressEvent;
 import software.amazon.cloudformation.proxy.ProxyClient;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
-
-import static software.amazon.qbusiness.retriever.Constants.API_GET_RETRIEVER;
 
 public class ReadHandler extends BaseHandlerStd {
   private Logger logger;
@@ -22,35 +20,34 @@ public class ReadHandler extends BaseHandlerStd {
       final Logger logger) {
 
     this.logger = logger;
-    this.logger.log("[INFO] - [StackId: %s, ApplicationId: %s, RetrieverId: %s] Entering Read Handler"
-        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId(), request.getDesiredResourceState().getRetrieverId()));
 
+    this.logger.log("[INFO] - [StackId: %s, PrimaryId: %s] Entering Read Handler"
+        .formatted(request.getStackId(), request.getDesiredResourceState().getApplicationId()));
     return ProgressEvent.progress(request.getDesiredResourceState(), callbackContext)
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-Retriever::Read", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+            proxy.initiate("AWS-QBusiness-Application::Read", proxyClient, progress.getResourceModel(), progress.getCallbackContext())
+                // Create Get Application request from resource model
                 .translateToServiceRequest(Translator::translateToReadRequest)
-                .makeServiceCall(this::callGetRetriever)
-                .handleError((getRetrieverRequest, error, client, model, context) ->
-                    handleError(getRetrieverRequest, model, error, context, logger, API_GET_RETRIEVER))
+                // Make call to the service
+                .makeServiceCall(this::callGetApplication)
+                .handleError((getApplicationRequest, error, client, model, context) ->
+                    handleError(getApplicationRequest, model, error, context, logger, API_GET_APPLICATION))
                 .done(serviceResponse -> ProgressEvent.progress(Translator.translateFromReadResponse(serviceResponse), callbackContext))
         )
+        // Now process listing tags for the resource
         .then(progress ->
-            proxy.initiate("AWS-QBusiness-Retriever::ListTags",
+            proxy.initiate("AWS-QBusiness-Application::ListTags",
                     proxyClient, progress.getResourceModel(),
                     progress.getCallbackContext()
                 )
                 .translateToServiceRequest(model -> Translator.translateToListTagsRequest(request, model))
                 .makeServiceCall(this::callListTags)
                 .handleError((listTagsRequest, error, client, model, context) ->
-                    handleError(listTagsRequest, model, error, context, logger, API_GET_RETRIEVER))
+                    handleError(listTagsRequest, model, error, context, logger, API_GET_APPLICATION))
                 .done(listTagsResponse -> ProgressEvent.defaultSuccessHandler(
                         Translator.translateFromReadResponseWithTags(listTagsResponse, progress.getResourceModel())
                     )
                 )
         );
-  }
-
-  protected GetRetrieverResponse callGetRetriever(GetRetrieverRequest request, ProxyClient<QBusinessClient> client) {
-    return client.injectCredentialsAndInvokeV2(request, client.client()::getRetriever);
   }
 }

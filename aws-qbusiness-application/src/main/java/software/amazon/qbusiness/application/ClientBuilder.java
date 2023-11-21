@@ -11,7 +11,7 @@ import software.amazon.cloudformation.LambdaWrapper;
 public class ClientBuilder {
 
   // {service}.{region}.api.aws
-  private static final String URL_PATTERN = "%s.%s.api.aws";
+  private static final String URL_PATTERN = "https://%s.%s.api.aws";
 
   public static QBusinessClient getClient() {
     String region = System.getenv(ENV_AWS_REGION);
