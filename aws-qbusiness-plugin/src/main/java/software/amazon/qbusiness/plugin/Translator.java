@@ -109,6 +109,8 @@ public class Translator {
    */
   static UpdatePluginRequest translateToUpdateRequest(final ResourceModel model) {
     return UpdatePluginRequest.builder()
+        .applicationId(model.getApplicationId())
+        .pluginId(model.getPluginId())
         .displayName(model.getDisplayName())
         .serverUrl(model.getServerUrl())
         .authConfiguration(AuthConfigHelper.convertToServiceAuthConfig(model.getAuthConfiguration()))
@@ -135,17 +137,18 @@ public class Translator {
    * @param listPluginsResponse the aws service list resource response
    * @return list of resource models
    */
-  static List<ResourceModel> translateFromListResponse(final ListPluginsResponse listPluginsResponse) {
+  static List<ResourceModel> translateFromListResponse(final String applicationId, final ListPluginsResponse listPluginsResponse) {
     return listPluginsResponse.plugins()
         .stream()
-        .map(pluginSummary -> ResourceModel.builder()
-            .pluginId(pluginSummary.pluginId())
-            .displayName(pluginSummary.displayName())
-            .type(pluginSummary.type().toString())
-            .serverUrl(pluginSummary.serverUrl())
-            .state(pluginSummary.stateAsString())
-            .createdAt(instantToString(pluginSummary.createdAt()))
-            .updatedAt(instantToString(pluginSummary.updatedAt()))
+        .map(plugin -> ResourceModel.builder()
+            .applicationId(applicationId)
+            .pluginId(plugin.pluginId())
+            .displayName(plugin.displayName())
+            .type(plugin.type().toString())
+            .serverUrl(plugin.serverUrl())
+            .state(plugin.stateAsString())
+            .createdAt(instantToString(plugin.createdAt()))
+            .updatedAt(instantToString(plugin.updatedAt()))
             .build())
         .toList();
 

@@ -197,6 +197,7 @@
         "iam:PassRole",
         "qbusiness:CreatePlugin",
         "qbusiness:GetPlugin",
+        "qbusiness:UpdatePlugin",
         "qbusiness:ListTagsForResource",
         "qbusiness:TagResource"
       ]
