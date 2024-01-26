@@ -98,6 +98,10 @@
         }
       },
       "additionalProperties": false
+    },
+    "Unit": {
+      "type": "object",
+      "additionalProperties": false
     }
   },
   "properties": {

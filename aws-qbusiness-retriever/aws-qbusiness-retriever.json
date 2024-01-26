@@ -157,6 +157,10 @@
       ],
       "additionalProperties": false
     },
+    "Unit": {
+      "type": "object",
+      "additionalProperties": false
+    },
     "ValueImportanceMap": {
       "type": "object",
       "patternProperties": {
