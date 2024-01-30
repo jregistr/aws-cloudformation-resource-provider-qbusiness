@@ -9,15 +9,6 @@
         "DELETE"
       ]
     },
-    "DataSourceConfiguration": {
-      "type": "object",
-      "properties": {
-        "TemplateConfiguration": {
-          "$ref": "#/definitions/TemplateConfiguration"
-        }
-      },
-      "additionalProperties": false
-    },
     "DataSourceStatus": {
       "type": "string",
       "enum": [
@@ -27,12 +18,6 @@
         "DELETING",
         "FAILED",
         "UPDATING"
-      ]
-    },
-    "DataSourceType": {
-      "type": "string",
-      "enum": [
-        "S3"
       ]
     },
     "DataSourceVpcConfiguration": {
@@ -223,7 +208,7 @@
           "type": "string",
           "maxLength": 2048,
           "minLength": 1,
-          "pattern": "arn:aws[a-zA-Z-]*:lambda:[a-z-]*-[0-9]:[0-9]{12}:function:[a-zA-Z0-9-_]+(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?(:[a-zA-Z0-9-_]+)?"
+          "pattern": "^arn:aws[a-zA-Z-]*:lambda:[a-z-]*-[0-9]:[0-9]{12}:function:[a-zA-Z0-9-_]+(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?(:[a-zA-Z0-9-_]+)?$"
         },
         "S3BucketName": {
           "type": "string",
@@ -275,13 +260,6 @@
       ],
       "additionalProperties": false
     },
-    "TemplateConfiguration": {
-      "type": "object",
-      "properties": {
-        "Template": {}
-      },
-      "additionalProperties": false
-    },
     "Unit": {
       "type": "object",
       "additionalProperties": false
@@ -294,15 +272,16 @@
       "minLength": 36,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
     },
-    "Configuration": {
-      "$ref": "#/definitions/DataSourceConfiguration"
-    },
+    "Configuration": {},
     "CreatedAt": {
       "type": "string",
       "format": "date-time"
     },
-    "CustomDocumentEnrichmentConfiguration": {
-      "$ref": "#/definitions/DocumentEnrichmentConfiguration"
+    "DataSourceArn": {
+      "type": "string",
+      "maxLength": 1284,
+      "minLength": 0,
+      "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
     },
     "DataSourceId": {
       "type": "string",
@@ -322,6 +301,9 @@
       "minLength": 1,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
     },
+    "DocumentEnrichmentConfiguration": {
+      "$ref": "#/definitions/DocumentEnrichmentConfiguration"
+    },
     "IndexId": {
       "type": "string",
       "maxLength": 36,
@@ -334,13 +316,13 @@
       "minLength": 0,
       "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
     },
-    "Schedule": {
+    "Status": {
+      "$ref": "#/definitions/DataSourceStatus"
+    },
+    "SyncSchedule": {
       "type": "string",
       "maxLength": 998,
       "pattern": "^\\P{C}*$"
-    },
-    "Status": {
-      "$ref": "#/definitions/DataSourceStatus"
     },
     "Tags": {
       "type": "array",
@@ -351,7 +333,9 @@
       "minItems": 0
     },
     "Type": {
-      "$ref": "#/definitions/DataSourceType"
+      "type": "string",
+      "maxLength": 2048,
+      "minLength": 1
     },
     "UpdatedAt": {
       "type": "string",
@@ -367,6 +351,7 @@
   ],
   "readOnlyProperties": [
     "/properties/CreatedAt",
+    "/properties/DataSourceArn",
     "/properties/DataSourceId",
     "/properties/Status",
     "/properties/Type",

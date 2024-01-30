@@ -29,6 +29,16 @@
       },
       "additionalProperties": false
     },
+    "IndexCapacityConfiguration": {
+      "type": "object",
+      "properties": {
+        "Units": {
+          "type": "number",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
     "IndexStatistics": {
       "type": "object",
       "properties": {
@@ -54,16 +64,6 @@
         "ENABLED",
         "DISABLED"
       ]
-    },
-    "StorageCapacityUnitConfiguration": {
-      "type": "object",
-      "properties": {
-        "Units": {
-          "type": "number",
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
     },
     "Tag": {
       "type": "object",
@@ -111,8 +111,8 @@
       "minLength": 36,
       "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
     },
-    "CapacityUnitConfiguration": {
-      "$ref": "#/definitions/StorageCapacityUnitConfiguration"
+    "CapacityConfiguration": {
+      "$ref": "#/definitions/IndexCapacityConfiguration"
     },
     "CreatedAt": {
       "type": "string",
@@ -137,6 +137,12 @@
       },
       "maxItems": 500,
       "minItems": 1
+    },
+    "IndexArn": {
+      "type": "string",
+      "maxLength": 1284,
+      "minLength": 0,
+      "pattern": "^arn:[a-z0-9-\\.]{1,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[a-z0-9-\\.]{0,63}:[^/].{0,1023}$"
     },
     "IndexId": {
       "type": "string",
@@ -168,6 +174,7 @@
   ],
   "readOnlyProperties": [
     "/properties/CreatedAt",
+    "/properties/IndexArn",
     "/properties/IndexId",
     "/properties/IndexStatistics",
     "/properties/Status",
