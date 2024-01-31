@@ -220,6 +220,7 @@
     "list": {
       "permissions": [
         "qbusiness:ListIndices"
+
       ],
       "handlerSchema": {
         "properties": {

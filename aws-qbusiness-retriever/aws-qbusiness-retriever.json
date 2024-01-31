@@ -3,99 +3,6 @@
   "description": "Definition of AWS::QBusiness::Retriever Resource Type",
   "sourceUrl": "https://github.com/aws-cloudformation/aws-cloudformation-resource-providers-qbusiness",
   "definitions": {
-    "DateAttributeBoostingConfiguration": {
-      "type": "object",
-      "properties": {
-        "BoostingLevel": {
-          "$ref": "#/definitions/DocumentAttributeBoostingLevel"
-        },
-        "BoostingDurationInSeconds": {
-          "type": "number",
-          "maximum": 999999999,
-          "minimum": 0
-        }
-      },
-      "required": [
-        "BoostingLevel"
-      ],
-      "additionalProperties": false
-    },
-    "DocumentAttributeBoostingConfiguration": {
-      "oneOf": [
-        {
-          "type": "object",
-          "title": "NumberConfiguration",
-          "properties": {
-            "NumberConfiguration": {
-              "$ref": "#/definitions/NumberAttributeBoostingConfiguration"
-            }
-          },
-          "required": [
-            "NumberConfiguration"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "title": "StringConfiguration",
-          "properties": {
-            "StringConfiguration": {
-              "$ref": "#/definitions/StringAttributeBoostingConfiguration"
-            }
-          },
-          "required": [
-            "StringConfiguration"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "title": "DateConfiguration",
-          "properties": {
-            "DateConfiguration": {
-              "$ref": "#/definitions/DateAttributeBoostingConfiguration"
-            }
-          },
-          "required": [
-            "DateConfiguration"
-          ],
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "title": "StringListConfiguration",
-          "properties": {
-            "StringListConfiguration": {
-              "$ref": "#/definitions/StringListAttributeBoostingConfiguration"
-            }
-          },
-          "required": [
-            "StringListConfiguration"
-          ],
-          "additionalProperties": false
-        }
-      ]
-    },
-    "DocumentAttributeBoostingLevel": {
-      "type": "string",
-      "enum": [
-        "NONE",
-        "LOW",
-        "MEDIUM",
-        "HIGH",
-        "VERY_HIGH"
-      ]
-    },
-    "DocumentAttributeBoostingOverrideMap": {
-      "type": "object",
-      "minProperties": 1,
-      "patternProperties": {
-        "^[a-zA-Z0-9_][a-zA-Z0-9_-]*$": {
-          "$ref": "#/definitions/DocumentAttributeBoostingConfiguration"
-        }
-      },
-      "additionalProperties": false
-    },
     "KendraIndexConfiguration": {
       "type": "object",
       "properties": {
@@ -119,37 +26,12 @@
           "maxLength": 36,
           "minLength": 36,
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9-]{35}$"
-        },
-        "BoostingOverride": {
-          "$ref": "#/definitions/DocumentAttributeBoostingOverrideMap"
         }
       },
       "required": [
         "IndexId"
       ],
       "additionalProperties": false
-    },
-    "NumberAttributeBoostingConfiguration": {
-      "type": "object",
-      "properties": {
-        "BoostingLevel": {
-          "$ref": "#/definitions/DocumentAttributeBoostingLevel"
-        },
-        "BoostingType": {
-          "$ref": "#/definitions/NumberAttributeBoostingType"
-        }
-      },
-      "required": [
-        "BoostingLevel"
-      ],
-      "additionalProperties": false
-    },
-    "NumberAttributeBoostingType": {
-      "type": "string",
-      "enum": [
-        "PRIORITIZE_LARGER_VALUES",
-        "PRIORITIZE_SMALLER_VALUES"
-      ]
     },
     "RetrieverConfiguration": {
       "oneOf": [
@@ -195,53 +77,6 @@
         "NATIVE_INDEX",
         "KENDRA_INDEX"
       ]
-    },
-    "StringAttributeBoostingConfiguration": {
-      "type": "object",
-      "properties": {
-        "BoostingLevel": {
-          "$ref": "#/definitions/DocumentAttributeBoostingLevel"
-        },
-        "AttributeValueBoosting": {
-          "$ref": "#/definitions/StringAttributeValueBoosting"
-        }
-      },
-      "required": [
-        "BoostingLevel"
-      ],
-      "additionalProperties": false
-    },
-    "StringAttributeValueBoosting": {
-      "type": "object",
-      "maxProperties": 10,
-      "minProperties": 1,
-      "patternProperties": {
-        ".+": {
-          "$ref": "#/definitions/StringAttributeValueBoostingLevel"
-        }
-      },
-      "additionalProperties": false
-    },
-    "StringAttributeValueBoostingLevel": {
-      "type": "string",
-      "enum": [
-        "LOW",
-        "MEDIUM",
-        "HIGH",
-        "VERY_HIGH"
-      ]
-    },
-    "StringListAttributeBoostingConfiguration": {
-      "type": "object",
-      "properties": {
-        "BoostingLevel": {
-          "$ref": "#/definitions/DocumentAttributeBoostingLevel"
-        }
-      },
-      "required": [
-        "BoostingLevel"
-      ],
-      "additionalProperties": false
     },
     "Tag": {
       "type": "object",
