@@ -18,7 +18,7 @@ import static software.amazon.qbusiness.retriever.Constants.API_DELETE_RETRIEVER
 public class DeleteHandler extends BaseHandlerStd {
   private static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
       .timeout(Duration.ofHours(4))
-      .delay(Duration.ofMinutes(2))
+      .delay(Duration.ofSeconds(30))
       .build();
 
   private final Constant backOffStrategy;

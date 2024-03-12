@@ -76,6 +76,7 @@ public class Translator {
     return ResourceModel.builder()
         .applicationId(awsResponse.applicationId())
         .retrieverId(awsResponse.retrieverId())
+        .retrieverArn(awsResponse.retrieverArn())
         .type(awsResponse.typeAsString())
         .status(awsResponse.statusAsString())
         .displayName(awsResponse.displayName())
@@ -276,6 +277,7 @@ public class Translator {
 
     return RetrieverConfiguration.builder()
         .kendraIndexConfiguration(fromServiceKendraIndexConfiguration(serviceRetrieverConfiguration.kendraIndexConfiguration()))
+        .nativeIndexConfiguration(fromServiceNativeIndexConfiguration(serviceRetrieverConfiguration.nativeIndexConfiguration()))
         .build();
   }
 
@@ -288,6 +290,18 @@ public class Translator {
 
     return KendraIndexConfiguration.builder()
         .indexId(serviceKendraIndexConfiguration.indexId())
+        .build();
+  }
+
+  static NativeIndexConfiguration fromServiceNativeIndexConfiguration(
+      software.amazon.awssdk.services.qbusiness.model.NativeIndexConfiguration serviceNativeIndexConfiguration
+  ) {
+    if (serviceNativeIndexConfiguration == null) {
+      return null;
+    }
+
+    return NativeIndexConfiguration.builder()
+        .indexId(serviceNativeIndexConfiguration.indexId())
         .build();
   }
 

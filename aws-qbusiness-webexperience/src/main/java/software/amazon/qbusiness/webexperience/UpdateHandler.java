@@ -27,7 +27,7 @@ public class UpdateHandler extends BaseHandlerStd {
 
   public static final Constant DEFAULT_BACK_OFF_STRATEGY = Constant.of()
       .timeout(Duration.ofHours(2))
-      .delay(Duration.ofMinutes(2))
+      .delay(Duration.ofSeconds(5))
       .build();
 
   private final Constant backOffStrategy;

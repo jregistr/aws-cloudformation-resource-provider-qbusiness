@@ -10,8 +10,8 @@ import static software.amazon.qbusiness.retriever.Constants.SERVICE_NAME_LOWER;
 
 public class Utils {
 
-  // arn:${Partition}:qbusiness:${Region}:${Account}:application/${ApplicationId}/retriever-source/${RetrieverId}
-  private static final String RETRIEVER_ARN_FORMAT = "arn:%s:" + SERVICE_NAME_LOWER + ":%s:%s:application/%s/retriever-source/%s";
+  // arn:${Partition}:qbusiness:${Region}:${Account}:application/${ApplicationId}/retriever/${RetrieverId}
+  private static final String RETRIEVER_ARN_FORMAT = "arn:%s:" + SERVICE_NAME_LOWER + ":%s:%s:application/%s/retriever/%s";
 
   private Utils() {
   }
