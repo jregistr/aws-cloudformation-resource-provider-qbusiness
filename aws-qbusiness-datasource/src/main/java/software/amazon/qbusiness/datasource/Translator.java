@@ -77,6 +77,7 @@ public class Translator {
         .applicationId(awsResponse.applicationId())
         .indexId(awsResponse.indexId())
         .dataSourceId(awsResponse.dataSourceId())
+        .dataSourceArn(awsResponse.dataSourceArn())
         .displayName(awsResponse.displayName())
         .description(awsResponse.description())
         .createdAt(instantToString(awsResponse.createdAt()))

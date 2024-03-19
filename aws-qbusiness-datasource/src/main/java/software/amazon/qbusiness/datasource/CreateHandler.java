@@ -62,12 +62,12 @@ public class CreateHandler extends BaseHandlerStd {
                     request.getClientRequestToken(), model
                 ))
                 .backoffDelay(backOffStrategy)
-                .makeServiceCall(this::callCreateDataSource)
+                .makeServiceCall((awsRequest, clientProxyClient) -> callCreateDataSource(awsRequest, clientProxyClient, progress.getResourceModel()))
                 .stabilize((createReq, createResponse, client, model, context) -> isStabilized(request, client, model, logger))
                 .handleError((createReq, error, client, model, context) -> handleError(
                     createReq, model, error, context, logger, API_CREATE_DATASOURCE
                 ))
-                .done(response -> ProgressEvent.progress(reqModel.toBuilder().dataSourceId(response.dataSourceId()).build(), callbackContext))
+                .progress()
         )
         .then(progress -> new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger));
   }
@@ -115,8 +115,11 @@ public class CreateHandler extends BaseHandlerStd {
 
   private CreateDataSourceResponse callCreateDataSource(
       CreateDataSourceRequest request,
-      ProxyClient<QBusinessClient> proxyClient
+      ProxyClient<QBusinessClient> proxyClient,
+      ResourceModel model
   ) {
-    return proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::createDataSource);
+    final CreateDataSourceResponse response = proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::createDataSource);
+    model.setDataSourceId(response.dataSourceId());
+    return response;
   }
 }

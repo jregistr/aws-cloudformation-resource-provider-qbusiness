@@ -52,6 +52,7 @@ public final class DocumentEnrichmentTranslator {
 
     return HookConfiguration.builder()
         .lambdaArn(serviceHookConfiguration.lambdaArn())
+        .roleArn(serviceHookConfiguration.roleArn())
         .s3BucketName(serviceHookConfiguration.s3BucketName())
         .invocationCondition(fromServiceDocumentAttributeCondition(serviceHookConfiguration.invocationCondition()))
         .build();
