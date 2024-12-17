@@ -1,11 +1,14 @@
 package software.amazon.qbusiness.application;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import software.amazon.awssdk.services.qbusiness.model.CreateApplicationRequest;
@@ -20,8 +23,8 @@ import software.amazon.awssdk.services.qbusiness.model.Tag;
 import software.amazon.awssdk.services.qbusiness.model.TagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UntagResourceRequest;
 import software.amazon.awssdk.services.qbusiness.model.UpdateApplicationRequest;
-import software.amazon.cloudformation.exceptions.CfnInvalidRequestException;
 import software.amazon.cloudformation.proxy.ResourceHandlerRequest;
+import software.amazon.qbusiness.common.TagUtils;
 
 /**
  * This class is a centralized placeholder for
@@ -35,15 +38,17 @@ public class Translator {
   /**
    * Request to create a resource
    *
-   * @param model resource model
+   * @param request The CFN request
+   * @param model   resource model
    * @return awsRequest the aws service request to create a resource
    */
   static CreateApplicationRequest translateToCreateRequest(
-      final String idempotentToken,
-      final ResourceModel model,
-      final Map<String, String> systemTags) {
+      final ResourceHandlerRequest<ResourceModel> request,
+      final ResourceModel model
+  ) {
+    var merged = TagUtils.mergeCreateHandlerTagsToSdkTags(cfnTagsToGenericMap(model.getTags()), request);
     return CreateApplicationRequest.builder()
-        .clientToken(idempotentToken)
+        .clientToken(request.getClientRequestToken())
         .displayName(model.getDisplayName())
         .roleArn(model.getRoleArn())
         .identityType(model.getIdentityType())
@@ -53,7 +58,7 @@ public class Translator {
         .description(model.getDescription())
         .encryptionConfiguration(toServiceEncryptionConfig(model.getEncryptionConfiguration()))
         .attachmentsConfiguration(toServiceAttachmentConfiguration(model.getAttachmentsConfiguration()))
-        .tags(TagHelper.serviceTagsFromCfnTags(model.getTags(), systemTags))
+        .tags(merged)
         .qAppsConfiguration(toServiceQAppsConfiguration(model.getQAppsConfiguration()))
         .personalizationConfiguration(toServicePersonalizationConfiguration(model.getPersonalizationConfiguration()))
         .build();
@@ -217,7 +222,7 @@ public class Translator {
   }
 
   static AutoSubscriptionConfiguration fromServiceAutoSubscriptionConfiguration(
-          software.amazon.awssdk.services.qbusiness.model.AutoSubscriptionConfiguration serviceConfig
+      software.amazon.awssdk.services.qbusiness.model.AutoSubscriptionConfiguration serviceConfig
   ) {
     if (serviceConfig == null) {
       return null;
@@ -228,9 +233,9 @@ public class Translator {
     }
 
     return AutoSubscriptionConfiguration.builder()
-            .autoSubscribe(serviceConfig.autoSubscribeAsString())
-            .defaultSubscriptionType(serviceConfig.defaultSubscriptionTypeAsString())
-            .build();
+        .autoSubscribe(serviceConfig.autoSubscribeAsString())
+        .defaultSubscriptionType(serviceConfig.defaultSubscriptionTypeAsString())
+        .build();
   }
 
   static software.amazon.awssdk.services.qbusiness.model.AutoSubscriptionConfiguration toServiceAutoSubscriptionConfiguration(
@@ -252,8 +257,30 @@ public class Translator {
     }
 
     return model.toBuilder()
-        .tags(TagHelper.cfnTagsFromServiceTags(listTagsResponse.tags()))
+        .tags(cfnTagsFromServiceTags(listTagsResponse.tags()))
         .build();
+  }
+
+  static List<software.amazon.qbusiness.application.Tag> cfnTagsFromServiceTags(
+      List<Tag> serviceTags
+  ) {
+    return serviceTags.stream()
+        .map(serviceTag -> new software.amazon.qbusiness.application.Tag(serviceTag.key(), serviceTag.value()))
+        .toList();
+  }
+
+  public static Map<String, String> cfnTagsToGenericMap(final Collection<software.amazon.qbusiness.application.Tag> tags) {
+    if (CollectionUtils.isEmpty(tags)) {
+      return Map.of();
+    }
+
+    return tags.stream()
+        .filter(tag -> tag.getValue() != null)
+        .collect(Collectors.toMap(
+            software.amazon.qbusiness.application.Tag::getKey,
+            software.amazon.qbusiness.application.Tag::getValue,
+            (oldValue, newValue) -> newValue)
+        );
   }
 
   /**
@@ -290,9 +317,9 @@ public class Translator {
 
   static UpdateApplicationRequest translateToPostCreateUpdateRequest(final ResourceModel model) {
     return UpdateApplicationRequest.builder()
-            .applicationId(model.getApplicationId())
-            .autoSubscriptionConfiguration(toServiceAutoSubscriptionConfiguration(model.getAutoSubscriptionConfiguration()))
-            .build();
+        .applicationId(model.getApplicationId())
+        .autoSubscriptionConfiguration(toServiceAutoSubscriptionConfiguration(model.getAutoSubscriptionConfiguration()))
+        .build();
   }
 
   /**
