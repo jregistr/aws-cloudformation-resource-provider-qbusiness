@@ -70,7 +70,14 @@ public class UpdateHandler extends BaseHandlerStd {
                 ))
                 .progress()
         )
-        .then(progress -> {
+        .then(progress -> TagUtils.makeUpdateTagsEvent(
+            progress, request,
+            (resourceModel, handlerRequest) -> Utils.buildApplicationArn(handlerRequest, resourceModel),
+            proxy, proxyClient, logger
+        ))
+        .then(model -> readHandler(proxy, request, callbackContext, proxyClient, logger));
+
+       /* .then(progress -> {
           var previousTags = TagUtils.getPreviouslyAttachedTags(
               Translator.cfnTagsToGenericMap(request.getPreviousResourceState().getTags()), request);
           var desiredTags = TagUtils.getNewDesiredTags(
@@ -110,7 +117,7 @@ public class UpdateHandler extends BaseHandlerStd {
               .makeServiceCall(this::callUntagResource)
               .progress();
         })
-        .then(model -> readHandler(proxy, request, callbackContext, proxyClient, logger));
+        .then(model -> readHandler(proxy, request, callbackContext, proxyClient, logger));*/
   }
 
   private ProgressEvent<ResourceModel, CallbackContext> readHandler(

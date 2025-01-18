@@ -1,0 +1,22 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --< software.amazon.qbusiness.application:aws-qbusiness-application >---
+[INFO] Building aws-qbusiness-application 1.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.646 s
+[INFO] Finished at: 2025-01-17T22:07:27-05:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project aws-qbusiness-application: Could not collect dependencies for project software.amazon.qbusiness.application:aws-qbusiness-application:jar:1.0
+[ERROR] Failed to read artifact descriptor for software.amazon.qbusiness.common:aws-qbusiness-handler-common:jar:1.0
+[ERROR] 	Caused by: The following artifacts could not be resolved: software.amazon.qbusiness:aws-qbusiness-cloudformation-handlers:pom:1.0-SNAPSHOT (absent): Could not find artifact software.amazon.qbusiness:aws-qbusiness-cloudformation-handlers:pom:1.0-SNAPSHOT
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
