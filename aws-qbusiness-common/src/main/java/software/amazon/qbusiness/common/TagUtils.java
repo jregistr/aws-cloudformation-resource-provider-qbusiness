@@ -18,6 +18,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.ObjectUtils;
 
 import software.amazon.awssdk.services.qbusiness.QBusinessClient;
@@ -52,10 +53,77 @@ public final class TagUtils {
     return mergeCreateHandlerTagsToSdkTags(modelTags, handlerRequest);
   }
 
-  public static <RType, CtxType extends StdCallbackContext> ProgressEvent<RType, CtxType> makeUpdateTagsEvent(
+  public static <RType, CtxType extends StdCallbackContext> ProgressEvent<RType, CtxType> updateTags(
+      final ProgressEvent<RType, CtxType> progressEvent,
+      final ResourceHandlerRequest<RType> handlerRequest,
+      final String resourceArn,
+      ProxyClient<QBusinessClient> proxyClient,
+      Logger logger
+  ) {
+    logger.log("Checking if there are updates to make to tags for resource: %s".formatted(resourceArn));
+    Map<String, String> previousTags = getPreviouslyAttachedTags(handlerRequest);
+    Map<String, String> desiredTags = getNewDesiredTags(handlerRequest);
+    if (!shouldUpdateTags(previousTags, desiredTags)) {
+      logger.log("No tag updates to be made for: %s".formatted(resourceArn));
+      return progressEvent;
+    }
+
+    Map<String, String> tagsToAdd = generateTagsToAdd(previousTags, desiredTags);
+    if (MapUtils.isNotEmpty(tagsToAdd)) {
+      invokeTagResource(resourceArn, tagsToAdd, proxyClient, logger);
+    }
+
+    Set<String> tagsToRemove = generateTagsToRemove(previousTags, desiredTags);
+    if (CollectionUtils.isNotEmpty(tagsToRemove)) {
+      invokeUntagResource(resourceArn, tagsToRemove, proxyClient, logger);
+    }
+
+    return progressEvent;
+  }
+
+  private static void invokeTagResource(
+      final String resourceArn,
+      final Map<String, String> tagsToAdd,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final Logger logger
+  ) {
+    logger.log("Invoking tag resource with %s tags to add".formatted(tagsToAdd.size()));
+
+    List<Tag> toTags = tagsToAdd.entrySet()
+        .stream()
+        .map(entry -> Tag.builder()
+            .key(entry.getKey())
+            .value(entry.getValue())
+            .build())
+        .toList();
+
+    var request = TagResourceRequest.builder()
+        .tags(toTags)
+        .resourceARN(resourceArn)
+        .build();
+    proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::tagResource);
+    logger.log("Finished invoking tag resource.");
+  }
+
+  private static void invokeUntagResource(
+      final String resourceArn,
+      final Set<String> tagsToRemove,
+      final ProxyClient<QBusinessClient> proxyClient,
+      final Logger logger
+  ) {
+    logger.log("Invoking untag resource with %s tags to remove".formatted(tagsToRemove.size()));
+    var request = UntagResourceRequest.builder()
+        .tagKeys(tagsToRemove)
+        .resourceARN(resourceArn)
+        .build();
+    proxyClient.injectCredentialsAndInvokeV2(request, proxyClient.client()::untagResource);
+    logger.log("Finished invoking untag resource");
+  }
+
+/*  public static <RType, CtxType extends StdCallbackContext> ProgressEvent<RType, CtxType> makeUpdateTagsEvent(
       ProgressEvent<RType, CtxType> progressEvent,
       final ResourceHandlerRequest<RType> handlerRequest,
-      BiFunction<RType, ResourceHandlerRequest<RType>, String> modelToArn,
+      final String resourceArn,
 //      Function<RType, String> modelToArn,
       AmazonWebServicesClientProxy proxy,
       ProxyClient<QBusinessClient> proxyClient,
@@ -74,7 +142,6 @@ public final class TagUtils {
 
     return proxy.initiate("AWS-QBusiness-Application::TagResource", proxyClient, progressEvent.getResourceModel(), progressEvent.getCallbackContext())
         .translateToServiceRequest(modelT -> {
-          String arn = modelToArn.apply(modelT, handlerRequest);
           List<Tag> toTags = tagsToAdd.entrySet()
               .stream()
               .map(entry -> Tag.builder()
@@ -86,7 +153,7 @@ public final class TagUtils {
           System.out.println("We tag");
 
           return TagResourceRequest.builder()
-              .resourceARN(arn)
+              .resourceARN(resourceArn)
               .tags(toTags)
               .build();
         })
@@ -107,9 +174,8 @@ public final class TagUtils {
           return proxy.initiate("AWS-QBusiness-Application::UnTagResource", proxyClient, nextProgress.getResourceModel(),
                   nextProgress.getCallbackContext())
               .translateToServiceRequest(model -> {
-                String arn = modelToArn.apply(model, handlerRequest);
                 return UntagResourceRequest.builder()
-                    .resourceARN(arn)
+                    .resourceARN(resourceArn)
                     .tagKeys(tagsToRemove)
                     .build();
               })
@@ -120,7 +186,7 @@ public final class TagUtils {
               })
               .progress();
         });
-  }
+  }*/
 
   public static <T> List<Tag> mergeCreateHandlerTagsToSdkTags(
       final Map<String, String> modelTags,

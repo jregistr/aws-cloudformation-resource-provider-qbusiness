@@ -70,12 +70,11 @@ public class UpdateHandler extends BaseHandlerStd {
                 ))
                 .progress()
         )
-        .then(progress -> TagUtils.makeUpdateTagsEvent(
-            progress, request,
-            (resourceModel, handlerRequest) -> Utils.buildApplicationArn(handlerRequest, resourceModel),
-            proxy, proxyClient, logger
-        ))
-        .then(model -> readHandler(proxy, request, callbackContext, proxyClient, logger));
+        .then(progress -> {
+          var arn = Utils.buildApplicationArn(request, progress.getResourceModel());
+          return TagUtils.updateTags(progress, request, arn, proxyClient, logger);
+        })
+        .then(model -> new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger));
 
        /* .then(progress -> {
           var previousTags = TagUtils.getPreviouslyAttachedTags(
@@ -120,7 +119,7 @@ public class UpdateHandler extends BaseHandlerStd {
         .then(model -> readHandler(proxy, request, callbackContext, proxyClient, logger));*/
   }
 
-  private ProgressEvent<ResourceModel, CallbackContext> readHandler(
+/*  private ProgressEvent<ResourceModel, CallbackContext> readHandler(
       final AmazonWebServicesClientProxy proxy,
       final ResourceHandlerRequest<ResourceModel> request,
       final CallbackContext callbackContext,
@@ -128,7 +127,7 @@ public class UpdateHandler extends BaseHandlerStd {
       final Logger logger
   ) {
     return new ReadHandler().handleRequest(proxy, request, callbackContext, proxyClient, logger);
-  }
+  }*/
 
   private UpdateApplicationResponse updateApplication(UpdateApplicationRequest request, ProxyClient<QBusinessClient> proxyClient) {
     var client = proxyClient.client();
@@ -146,7 +145,7 @@ public class UpdateHandler extends BaseHandlerStd {
     return hasStabilized;
   }
 
-  private TagResourceResponse callTagResource(TagResourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
+/*  private TagResourceResponse callTagResource(TagResourceRequest request, ProxyClient<QBusinessClient> proxyClient) {
     if (!request.hasTags()) {
       return TagResourceResponse.builder().build();
     }
@@ -160,5 +159,5 @@ public class UpdateHandler extends BaseHandlerStd {
     }
     var client = proxyClient.client();
     return proxyClient.injectCredentialsAndInvokeV2(request, client::untagResource);
-  }
+  }*/
 }

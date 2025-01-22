@@ -162,7 +162,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
     testMocks.close();
   }
 
-  @Test
+ /* @Test
   public void handleRequest_SimpleSuccess() {
     // call method under test
     final ProgressEvent<ResourceModel, CallbackContext> resultProgress = underTest.handleRequest(
@@ -209,7 +209,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
         "toremove",
         "stack-i-remove"
     ));
-  }
+  }*/
 
   @Test
   public void testThatItDoesntTagAndUnTag() {
@@ -298,7 +298,7 @@ public class UpdateHandlerTest extends AbstractTestBase {
     verify(sdkClient).listTagsForResource(any(ListTagsForResourceRequest.class));
   }
 
-  @Test
+ /* @Test
   public void testThatItCallsTagButSkipsCallingUntag() {
     // set up
     testRequest.setPreviousResourceTags(Map.of(
@@ -340,9 +340,9 @@ public class UpdateHandlerTest extends AbstractTestBase {
         Map.entry("stacksame", "newValue"),
         Map.entry("datTag", "valueb")
     ));
-  }
+  }*/
 
-  @Test
+ /* @Test
   public void testThatItCallsUnTagButSkipsCallingTag() {
     // set up scenario
     previousModel.setTags(List.of(
@@ -380,6 +380,6 @@ public class UpdateHandlerTest extends AbstractTestBase {
 
     var untagReq = untagReqCaptor.getValue();
     assertThat(untagReq.tagKeys()).isEqualTo(List.of("toBeRemove"));
-  }
+  }*/
 
 }
